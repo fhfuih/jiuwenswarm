@@ -35,6 +35,7 @@
     "work": "Tasks",
     "agent": "Agent",
     "teams": "Teams",
+    "design": "Design",
     "sessions": "Sessions",
     "cron": "Scheduled Tasks",
     "skills": "Skills",
@@ -43,6 +44,20 @@
     "settings": "Settings",
     "logs": "Logs",
     "update": "Updates"
+  },
+  "designer": {
+    "loading": "Loading design workflow…",
+    "emptyTitle": "No design workflow yet",
+    "emptyDescription": "Send a prompt with the Design option from Tasks, or come back once a workflow exists for this project.",
+    "loadErrorTitle": "Failed to load",
+    "loadErrorFallback": "Could not load the design workflow. Please try again later.",
+    "chat": {
+      "title": "Design assistant",
+      "emptyHint": "Describe your creative intent here, or continue after jumping from Tasks with Design enabled.",
+      "inputPlaceholder": "Describe what you want to create…",
+      "collapse": "Collapse chat",
+      "expand": "Expand chat"
+    }
   },
   "settingsPanel": {
     "title": "Settings",
