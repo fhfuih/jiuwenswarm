@@ -63,6 +63,7 @@
     "test:upload-document-block": "tsc src/utils/documentMessage.ts --target ES2020 --module ES2020 --moduleResolution Bundler --rootDir src --outDir node_modules/.cache/upload-document-block --skipLibCheck --noEmitOnError && node --test tests/uploadDocumentBlock.test.mjs",
     "test:share-image": "esbuild src/features/shareImageRaster.ts src/features/streamingPng.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/share-image && node --test tests/shareImageExport.test.mjs",
     "test:build-turn-timeline": "esbuild src/features/chatTimeline/buildTurnTimeline.ts --bundle --packages=external --platform=node --format=esm --loader:.svg=file --loader:.png=file --define:import.meta.env.DEV=false --outdir=node_modules/.cache/build-turn-timeline && node --test tests/buildTurnTimeline.test.mjs",
+    "test:designer-graph-adapter": "./node_modules/esbuild/bin/esbuild src/features/designer/designerGraphAdapter.ts --bundle --packages=external --platform=node --format=esm --outfile=node_modules/.cache/designer-graph-adapter/designerGraphAdapter.mjs && node --test tests/designerGraphAdapter.test.mjs",
     "test:pending-connector-flow": "node --test tests/pendingConnectorFlow.test.mjs",
     "test:model-reasoning": "esbuild src/features/settings/modules/models/modelReasoning.ts src/features/settings/modules/models/modelAdapters.ts src/features/settings/modules/models/modelValidation.ts --bundle --platform=node --format=esm --outdir=node_modules/.cache/model-reasoning && node --test tests/modelReasoning.test.mjs",
     "test:agent-avatar": "esbuild src/features/agentIdentity.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/agent-identity/agentIdentity.mjs && esbuild src/stores/agentCatalogStore.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/agent-catalog-store/agentCatalogStore.mjs && esbuild src/stores/sessionStore.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/agent-selection/sessionStore.mjs --define:import.meta.env.DEV=false && esbuild src/components/AgentAvatar/index.tsx --bundle --packages=external --platform=node --format=esm --outfile=node_modules/.cache/agent-avatar/AgentAvatar.mjs --loader:.svg=dataurl --loader:.png=dataurl --define:import.meta.env.DEV=false && esbuild src/components/ChatPanel/MessageList.tsx --bundle --packages=external --platform=node --format=esm --outfile=node_modules/.cache/chat-timeline-list/MessageList.mjs --loader:.svg=dataurl --loader:.png=dataurl --loader:.css=empty --define:import.meta.env.DEV=false && esbuild src/components/ChatPanel/ToolGroupDisplay.tsx --bundle --packages=external --platform=node --format=esm --outfile=node_modules/.cache/tool-group-avatar/toolGroupAvatar.mjs --loader:.svg=dataurl --loader:.png=dataurl --define:import.meta.env.DEV=false && node --test tests/agentIdentity.test.mjs tests/agentCatalogStore.test.mjs tests/agentSelectionIntent.test.mjs tests/agentAvatar.test.mjs tests/turnElapsedAvatar.test.mjs tests/toolGroupAvatar.test.mjs",
@@ -100,7 +101,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.14.9",
     "@types/dagre": "^0.7.54",
-    "@xyflow/react": "^12.11.3",
+    "@xyflow/react": "^12.11.6",
     "clsx": "^2.1.0",
     "dagre": "^0.8.5",
     "diff": "^9.0.0",
@@ -139,8 +140,8 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@types/node": "^25.2.3",
     "@types/mdast": "^4.0.4",
+    "@types/node": "^25.2.3",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",

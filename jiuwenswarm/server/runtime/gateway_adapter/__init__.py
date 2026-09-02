@@ -29,6 +29,7 @@ from jiuwenswarm.server.runtime.gateway_adapter.workspace_file_adapter import (
 )
 from jiuwenswarm.server.runtime.gateway_adapter.harmonyos_adapter import HarmonyOSAdapter
 from jiuwenswarm.server.runtime.gateway_adapter.config_adapter import ConfigAdapter
+from jiuwenswarm.server.runtime.gateway_adapter.designer_adapter import DesignerAdapter
 
 __all__ = [
     "AdapterRegistry",
@@ -39,4 +40,5 @@ __all__ = [
     "WorkspaceFileAdapter",
     "HarmonyOSAdapter",
     "ConfigAdapter",
+    "DesignerAdapter",
 ]
