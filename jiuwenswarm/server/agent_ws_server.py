@@ -141,6 +141,7 @@ from jiuwenswarm.common.log_preview import preview_text
 from jiuwenswarm.server.runtime.gateway_adapter import (
     AdapterRegistry,
     ConfigAdapter,
+    DesignerAdapter,
     HarmonyOSAdapter,
     MemoryAdapter,
     ProjectAdapter,
@@ -1050,6 +1051,7 @@ class AgentWebSocketServer:
             WorkspaceFileAdapter(),
             MemoryAdapter(),
             ProjectAdapter(),
+            DesignerAdapter(),
             HarmonyOSAdapter(),
             ConfigAdapter(),
         ):
