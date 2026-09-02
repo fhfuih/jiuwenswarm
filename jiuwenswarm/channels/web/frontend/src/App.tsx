@@ -26,6 +26,7 @@ import {
   type SettingsModuleTarget,
 } from './features/settings/settingsNavigation';
 import { ConnectorMarketPanel } from './components/ConnectorMarket';
+import { DesignerPage } from './features/designer/components/DesignerPage';
 import {
   ShareImageDocument,
   exportShareImageNode,
@@ -2864,6 +2865,10 @@ function AppContent({
       }
       if (nav === 'agents') setHasVisitedAgents(true);
       if (nav === 'skills') setHasVisitedSkills(true);
+      if (nav === 'design') {
+        setTeamAreaExpanded(false);
+        setToolPanelHidden(true);
+      }
     },
     [activeNav, isMobile, modelSetupGuideStep, setSingleAgentPanelExpanded, setTeamAreaExpanded, setToolPanelHidden, t],
   );
@@ -3215,6 +3220,9 @@ const showWorkspaceDivider = effectiveTeamAreaExpanded && !showConversationNotFo
               })}
             />
           </div>
+        )}
+        {activeNav === 'design' && (
+          <DesignerPage projectId={sessionProject?.project_id} />
         )}
         {activeNav === 'sessions' && (
           <div className="app-section">
