@@ -105,6 +105,9 @@
       "uploadAction": "Confirm upload",
       "editAction": "Save",
       "actionNotImplemented": "This feature is not implemented yet"
+    },
+    "edge": {
+      "delete": "Delete connection"
     }
   },
   "settingsPanel": {
