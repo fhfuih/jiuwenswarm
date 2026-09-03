@@ -7,11 +7,16 @@
 import { useTranslation } from 'react-i18next';
 import { useChatStore, useSessionStore, useTodoStore } from '../../stores';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Info } from 'lucide-react';
+import { Info, GitBranch } from 'lucide-react';
 import { useSessionArtifacts, useSessionArtifactsCount } from '../ArtifactsPanel';
 import { useTaskPlanningMetrics } from '../teamArea';
 import { ExpandedPanel } from '../teamArea/ExpandedPanel';
+import { WorkflowGraphPanel } from '../teamArea/WorkflowGraphPanel';
 import { loadTeamHistoryPanelState } from '../../features/teamHistoryPanelRestore';
+import {
+  applyWorkflowRunsToSession,
+  loadWorkflowRunsForSession,
+} from '../../features/workflowGraph/loadWorkflowRuns';
 import { TaskPlanningPanel } from '../teamArea/TaskPlanningPanel';
 import { TeamMembersPanel } from '../teamArea/TeamMembersPanel';
 import { CompactTaskList } from '../teamArea/CompactTaskList';
@@ -21,6 +26,7 @@ import { TeamMemberAvatar } from '../TeamMemberAvatar';
 import { isTeamLeaderMember } from '../../utils/teamMemberAvatar';
 import { getMemberPlainName, type TabType, type TeamDetailTab } from '../teamArea/shared';
 import type { TeamTask, TeamTaskStatus } from '../../stores/sessionStore';
+import type { WorkflowStatus } from '../../features/workflowGraph/workflowGraphModel';
 import type { ProjectInfo, TodoItem, TodoStatus } from '../../types';
 import teamIcon from '../../assets/team.svg';
 import RecentTasksIcon from '../../assets/work-mode/progress-tasks.svg?react';
@@ -40,6 +46,13 @@ import { SubagentStatusIcon } from '../subagent/SubagentStatusIcon';
 import { useSubagentStore, selectSubagents } from '../../stores/subagentStore';
 import { useMinWidth } from '../../hooks/useResponsive';
 import './ToolPanel.css';
+
+function workflowStatusToTeamTaskStatus(status: WorkflowStatus): TeamTaskStatus {
+  if (status === 'completed') return 'completed';
+  if (status === 'failed' || status === 'stopped') return 'cancelled';
+  if (status === 'running' || status === 'waiting_for_human') return 'in_progress';
+  return 'pending';
+}
 
 /** 规划/性能模式下把 TodoItem 降级映射为 TeamTask，复用 TaskPlanningPanel 紧凑态样式 */
 function todoItemToTeamTask(todo: TodoItem): TeamTask {
@@ -146,6 +159,7 @@ export function ToolPanel({
   const resolvedSessionId = sessionId ?? activeSessionId ?? '';
   const teamMembers = useSessionStore(s => s.runtimes[activeSessionId ?? '']?.teamMembers ?? []);
   const teamHistoryMessages = useSessionStore(s => s.runtimes[activeSessionId ?? '']?.teamHistoryMessages ?? []);
+  const workflowRuns = useSessionStore(s => s.runtimes[activeSessionId ?? '']?.workflowRuns ?? []);
   const setTeamMembers = useSessionStore(s => s.setTeamMembers);
   const setTeamTaskEvents = useSessionStore(s => s.setTeamTaskEvents);
   const setTeamTasks = useSessionStore(s => s.setTeamTasks);
@@ -388,6 +402,30 @@ export function ToolPanel({
     setTeamTasks,
   ]);
 
+  useEffect(() => {
+    if (mode !== 'team' || !isConnected || !sessionId || !(sessionId.startsWith('sess_') || sessionId.startsWith('web_'))) {
+      return;
+    }
+    if (isNewSessionPromotion) {
+      return;
+    }
+    const controller = new AbortController();
+    void loadWorkflowRunsForSession(sessionId, controller.signal)
+      .then((runs) => {
+        if (controller.signal.aborted) return;
+        applyWorkflowRunsToSession(sessionId, runs);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        console.warn('[team.workflow] restore failed:', error);
+      });
+    return () => {
+      controller.abort();
+    };
+  }, [isConnected, isNewSessionPromotion, mode, sessionId]);
+
   const panelExpanded = mode === 'team' ? teamAreaExpanded : singleAgentPanelExpanded;
 
   if (panelExpanded && mode !== 'auto_harness') {
@@ -427,9 +465,23 @@ export function ToolPanel({
                 : { key: 'subagents', label: t('subagent.title'), icon: <img src={teamIcon} width={16} height={16} aria-hidden="true" /> }
             }
             showMiddleTab={isTeam ? true : subagentCount > 0}
+            extraTabs={
+              isTeam
+                ? [
+                    {
+                      key: 'workflow',
+                      label: t('team.workflowTab'),
+                      icon: <GitBranch className="h-4 w-4" aria-hidden="true" />,
+                    },
+                  ]
+                : []
+            }
             resolveActiveTab={(tab, count, review) => {
               if (tab === 'artifacts' && count > 0) return 'artifacts';
-              if (isTeam) return tab === 'review' && !review ? 'planning' : tab;
+              if (isTeam) {
+                if (tab === 'workflow') return 'workflow';
+                return tab === 'review' && !review ? 'planning' : tab;
+              }
               if (tab === 'subagents' && subagentCount > 0) return 'subagents';
               if (tab === 'review' && review) return 'review';
               return 'planning';
@@ -454,6 +506,9 @@ export function ToolPanel({
                 />
               )
             }
+            renderExtraTabContent={() => (
+              <WorkflowGraphPanel runs={workflowRuns} sessionId={resolvedSessionId} />
+            )}
             renderPlanningContent={() =>
               isTeam ? (
                 <TaskPlanningPanel
@@ -536,6 +591,35 @@ export function ToolPanel({
             maxCollapsedCount={4}
             {...planningProps}
             emptyIllustration={emptyPlanningIcon}
+          />
+        </CollapsibleSection>
+      ),
+    },
+    isTeam && {
+      key: 'workflow',
+      testId: 'tool-panel-team-workflow-pane',
+      render: () => (
+        <CollapsibleSection
+          title={t('team.workflowTab')}
+          icon={<GitBranch className="h-4 w-4" aria-hidden="true" />}
+          childCount={workflowRuns[0]?.phases.length ?? 0}
+          maxCollapsedCount={4}
+          onExpand={() => expandTo('workflow')}
+          dataTestId="tool-panel-team-workflow"
+          defaultCollapsed
+          autoExpandOnContent
+        >
+          <CompactTaskList
+            tasks={(workflowRuns[0]?.phases ?? []).map(phase => ({
+              task_id: phase.id,
+              title: phase.name,
+              status: workflowStatusToTeamTaskStatus(phase.status),
+            }))}
+            members={teamMembers}
+            hideAssignee
+            maxCollapsedCount={4}
+            emptyText={t('team.workflow.empty')}
+            onTaskClick={() => expandTo('workflow')}
           />
         </CollapsibleSection>
       ),

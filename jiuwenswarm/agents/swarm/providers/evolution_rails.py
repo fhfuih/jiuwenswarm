@@ -100,7 +100,7 @@ def _build_team_workspace_info(
     from jiuwenswarm.agents.harness.team.team_runtime_inheritance import (
         TeamWorkspaceInfo,
     )
-    from openjiuwen.extensions.observability.demand import (
+    from jiuwenswarm.agents.harness.observability_runtime import (
         get_trajectory_span_processor,
     )
     return TeamWorkspaceInfo(
@@ -535,7 +535,7 @@ def build_team_skill_evolution_rail(
     ):
         return []
 
-    from openjiuwen.extensions.observability.demand import (
+    from jiuwenswarm.agents.harness.observability_runtime import (
         get_trajectory_span_processor,
     )
 
@@ -668,7 +668,7 @@ def build_team_skill_create_rail(
     ):
         return None
 
-    from openjiuwen.extensions.observability.demand import (
+    from jiuwenswarm.agents.harness.observability_runtime import (
         get_trajectory_span_processor,
     )
 
@@ -760,7 +760,7 @@ def build_member_skill_evolution_rail(
     ):
         return []
 
-    from openjiuwen.extensions.observability.demand import (
+    from jiuwenswarm.agents.harness.observability_runtime import (
         get_trajectory_span_processor,
     )
 

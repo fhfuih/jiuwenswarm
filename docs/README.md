@@ -204,7 +204,7 @@
     <tr>
       <td width="22%"><strong>开发者文档</strong></td>
       <td width="28%"><a href="zh/developer_guide.md">开发者文档</a></td>
-      <td width="50%">源码搭建、调试流程与二次开发资料。</td>
+      <td width="50%">源码搭建、Windows 调试注意、SwarmFlow 工作流可视化与二次开发资料。</td>
     </tr>
     <tr>
       <th colspan="3" align="left" bgcolor="#f3f4f6"><h3>🛠️ 开发实践</h3></th>

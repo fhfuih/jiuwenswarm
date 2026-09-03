@@ -631,6 +631,9 @@ def _build_team_permission_rail(params: dict[str, Any], context: Any) -> Any | N
     )
     from openjiuwen.agent_teams.tools.message_manager import TeamMessageManager
     from openjiuwen.harness.security.host import ToolPermissionHost
+    from jiuwenswarm.tiered_policy_compat import apply_tiered_policy_parse_level_compat
+
+    apply_tiered_policy_parse_level_compat()
     from openjiuwen.agent_teams.security.narrowing import narrow_permissions
 
     override = get_permissions_override(context)

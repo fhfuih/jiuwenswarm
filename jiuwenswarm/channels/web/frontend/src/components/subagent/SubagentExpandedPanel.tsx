@@ -115,16 +115,16 @@ function ActivityRow({ group, isLast, isSubagentRunning }: { group: SubagentActi
   const detailsId = `subagent-activity-details-${activity.activity_id}`;
 
   return (
-    <li className="subagent-activity-row" data-testid="subagent-activity-row" data-variant={activity.activity_id}>
+    <li className="subagent-activity-row">
       <div className="subagent-activity-row__icon" aria-hidden="true">
         <ActivityIcon activity={activity} />
       </div>
       <div className="subagent-activity-row__body">
-        <span className="subagent-activity-row__label" data-testid="subagent-activity-row-label">{label}</span>
-        {summary && summary !== label ? <span className="subagent-activity-row__summary" data-testid="subagent-activity-row-summary"> | {summary}</span> : null}
-        {activity.dropped ? <span className="subagent-activity-row__dropped" data-testid="subagent-activity-row-dropped"> +{activity.dropped}</span> : null}
+        <span className="subagent-activity-row__label">{label}</span>
+        {summary && summary !== label ? <span className="subagent-activity-row__summary"> | {summary}</span> : null}
+        {activity.dropped ? <span className="subagent-activity-row__dropped"> +{activity.dropped}</span> : null}
       </div>
-      {timestamp ? <span className="subagent-activity-row__timestamp" data-testid="subagent-activity-row-timestamp">{timestamp}</span> : null}
+      {timestamp ? <span className="subagent-activity-row__timestamp">{timestamp}</span> : null}
       <button
         type="button"
         className="subagent-activity-row__toggle"
@@ -132,7 +132,6 @@ function ActivityRow({ group, isLast, isSubagentRunning }: { group: SubagentActi
         aria-controls={detailsId}
         aria-label={t(expanded ? 'subagent.activity.collapse' : 'subagent.activity.expand')}
         onClick={() => setExpanded(value => !value)}
-        data-testid="subagent-activity-row-toggle"
       >
         {isRunning ? (
           <ProcessingIcon className="subagent-activity-row__processing shrink-0 text-muted animate-spin" aria-label={t('subagent.running')} role="img" />
@@ -141,10 +140,10 @@ function ActivityRow({ group, isLast, isSubagentRunning }: { group: SubagentActi
         )}
       </button>
       {expanded ? (
-        <div id={detailsId} className="subagent-activity-row__detail" data-testid="subagent-activity-row-detail">
+        <div id={detailsId} className="subagent-activity-row__detail">
           <div className="subagent-activity-row__detail-rows">
             {detailRows.map(([detailLabel, detailValue]) => (
-              <div key={detailLabel} className="subagent-activity-row__detail-row" data-testid="subagent-activity-row-detail-row" data-variant={detailLabel}>
+              <div key={detailLabel} className="subagent-activity-row__detail-row">
                 <span className="subagent-activity-row__detail-label">{detailLabel}</span>
                 <span className="subagent-activity-row__detail-value">{detailValue}</span>
               </div>
@@ -167,7 +166,7 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
   const subagent = runtime?.subagentsById[subagentId];
 
   if (!subagent) {
-    return <div className="subagent-detail__state" role="status" data-testid="subagent-detail-empty">{t('subagent.empty')}</div>;
+    return <div className="subagent-detail__state" role="status">{t('subagent.empty')}</div>;
   }
 
   const taskDescription = subagent.task_description?.trim() || subagent.display_name;
@@ -199,7 +198,7 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
   }));
 
   return (
-    <div className="subagent-detail" data-testid="subagent-detail">
+    <div className="subagent-detail">
       <div className="flex shrink-0 items-center gap-2 bg-card pl-4 pr-6 pt-6" data-testid="subagent-member-detail-section">
         {onBack ? (
           <button
@@ -212,9 +211,9 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
           </button>
         ) : null}
         <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-sm font-semibold text-text" data-testid="subagent-detail-name">{subagent.display_name}</h2>
-          {subagent.role ? <span className="truncate text-sm text-text-muted" data-testid="subagent-detail-role"> | {subagent.role}</span> : null}
-          {subagent.status === 'closed' ? <span className="subagent-closed-badge" data-testid="subagent-detail-closed-badge">{t('subagent.closed')}</span> : null}
+          <h2 className="truncate text-sm font-semibold text-text">{subagent.display_name}</h2>
+          {subagent.role ? <span className="truncate text-sm text-text-muted"> | {subagent.role}</span> : null}
+          {subagent.status === 'closed' ? <span className="subagent-closed-badge">{t('subagent.closed')}</span> : null}
         </div>
         {subagent.status !== 'closed' || hasFailed || subagent.closed_reason === 'evicted' ? (
           <div className="ml-auto shrink-0">
@@ -225,12 +224,12 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
 
       <div className="min-h-0 flex-1 overflow-y-auto px-12 pt-[26px] pb-7" data-testid="subagent-member-detail-body">
         {hasFailed && subagent.error ? (
-          <div className="subagent-error-note" role="alert" data-testid="subagent-detail-error">
+          <div className="subagent-error-note" role="alert">
             {subagent.error.message}
           </div>
         ) : null}
 
-        <div className="subagent-conversation" aria-live="polite" data-testid="subagent-detail-conversation">
+        <div className="subagent-conversation" aria-live="polite">
           {visibleTurns.map(turn => {
             const turnActivities = turn.task_id === '__legacy__'
               ? activities
@@ -241,21 +240,21 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
               ?? (turn.task_id === latestTurnId ? legacyFallbackResult : undefined);
             const waitingForHistory = historyRestoring && turnResult == null;
             return (
-              <section className="subagent-turn" key={turn.task_id} data-testid="subagent-turn" data-variant={turn.task_id}>
+              <section className="subagent-turn" key={turn.task_id}>
                 {turn.task_description.trim() ? (
-                  <div className="subagent-assignment" data-testid="subagent-turn-assignment">
+                  <div className="subagent-assignment">
                     <MarkdownRenderer content={turn.task_description} className="chat-text chat-markdown subagent-markdown" />
                   </div>
                 ) : null}
 
-                <div className="subagent-identity" data-testid="subagent-turn-identity">
+                <div className="subagent-identity">
                   <TeamMemberAvatar member={subagent.subagent_id} alt={subagent.display_name} className="h-8 w-8 rounded-xl" imageClassName="rounded-xl" />
                   <div className="subagent-message__name">{subagent.display_name}</div>
                 </div>
 
-                <div className="subagent-activity-section" data-testid="subagent-turn-activity-section">
+                <div className="subagent-activity-section">
                   {turnActivities.length > 0 ? (
-                    <ol className="subagent-activity-list" aria-label={t('subagent.activityTitle')} data-testid="subagent-activity-list">
+                    <ol className="subagent-activity-list" aria-label={t('subagent.activityTitle')}>
                       {activityGroups.map((group, index) => (
                         <ActivityRow
                           key={group.activity.activity_id}
@@ -269,13 +268,13 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
                 </div>
 
                 {waitingForHistory ? (
-                  <div className="subagent-history-loading" role="status" aria-live="polite" data-testid="subagent-history-loading">
+                  <div className="subagent-history-loading" role="status" aria-live="polite">
                     {t('subagent.historyLoading')}
                   </div>
                 ) : null}
 
                 {turnResult?.content?.trim() ? (
-                  <div className="subagent-message" data-testid="subagent-turn-message">
+                  <div className="subagent-message">
                     <div className="subagent-message__body">
                       <MarkdownRenderer content={turnResult.content} className="chat-text chat-markdown subagent-markdown subagent-message__content" />
                     </div>
@@ -285,13 +284,13 @@ function SubagentDetail({ sessionId, subagentId, onBack }: { sessionId: string; 
             );
           })}
           {activities.length === 0 && !visibleTurns.some(turn => turn.result?.content?.trim()) ? (
-            <div className="subagent-detail__state" data-testid="subagent-detail-activity-empty">{t('subagent.activityEmpty')}</div>
+            <div className="subagent-detail__state">{t('subagent.activityEmpty')}</div>
           ) : null}
         </div>
 
       </div>
 
-      <div className="subagent-detail__footer" data-testid="subagent-detail-footer">
+      <div className="subagent-detail__footer">
         <MemberTaskListBar
           tasks={taskListItems}
           expanded={tasksExpanded}
@@ -431,14 +430,14 @@ export function SubagentExpandedPanel({
   };
 
   if (!runtime) {
-    return <div className="subagent-detail__state" role="status" data-testid="subagent-expanded-empty">{t('subagent.empty')}</div>;
+    return <div className="subagent-detail__state" role="status">{t('subagent.empty')}</div>;
   }
 
   return (
-    <div className="subagent-expanded-panel" data-testid="subagent-expanded-panel">
-      <aside className="subagent-expanded-panel__list" aria-label={t('subagent.title')} data-testid="subagent-expanded-list">
+    <div className="subagent-expanded-panel">
+      <aside className="subagent-expanded-panel__list" aria-label={t('subagent.title')}>
         <div className="subagent-expanded-panel__list-heading px-[24px] pt-[24px]">
-          <span className="text-sm text-text" data-testid="subagent-expanded-list-heading">{t('subagent.activeListTitle', { count: activeCount })}</span>
+          <span className="text-sm text-text">{t('subagent.activeListTitle', { count: activeCount })}</span>
         </div>
         <div className="space-y-3 px-[24px] py-4">
           {subagents.map(subagent => {
@@ -451,14 +450,12 @@ export function SubagentExpandedPanel({
                 onClick={() => openDetail(subagent.subagent_id)}
                 aria-pressed={subagent.subagent_id === selectedSubagentId}
                 aria-label={t('subagent.selectWithStatus', { name: subagent.display_name, status: statusLabel })}
-                data-testid="subagent-expanded-row"
-                data-variant={subagent.subagent_id}
               >
                 <TeamMemberAvatar member={subagent.subagent_id} alt={subagent.display_name} className="h-8 w-8 rounded-xl" imageClassName="rounded-xl" />
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-sm font-semibold text-text" data-testid="subagent-expanded-row-name">{subagent.display_name}</span>
+                  <span className="block truncate text-sm font-semibold text-text">{subagent.display_name}</span>
                   {(subagent.role || subagent.task_description) ? (
-                    <span className="block truncate text-xs text-text-muted" data-testid="subagent-expanded-row-role">{subagent.role || subagent.task_description}</span>
+                    <span className="block truncate text-xs text-text-muted">{subagent.role || subagent.task_description}</span>
                   ) : null}
                 </span>
                 <SubagentStatusIcon status={subagent.status} closedReason={subagent.closed_reason} turnOutcome={subagent.turn_outcome} />
@@ -468,7 +465,7 @@ export function SubagentExpandedPanel({
         </div>
       </aside>
       {detailSubagent ? (
-        <section className="min-w-0 flex-1 overflow-hidden" data-testid="subagent-expanded-detail">
+        <section className="min-w-0 flex-1 overflow-hidden">
           <SubagentDetail key={detailSubagent.subagent_id} sessionId={sessionId} subagentId={detailSubagent.subagent_id} onBack={backToOverview} />
         </section>
       ) : (

@@ -168,6 +168,75 @@ Notes:
 - Log files are never rotated or removed automatically; delete `logs/swarm-*.log`
   manually when they pile up
 
+### Windows source-debug notes
+
+- **Always use `uv run`**. The system `python` may still be an old version (for
+  example 3.6); do not call `python` / `pytest` directly.
+- If a newly opened PowerShell cannot find `uv`, refresh PATH:
+
+```powershell
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+```
+
+- The debug launcher parses Unicode in the port banner. If the terminal is GBK:
+
+```powershell
+$env:PYTHONUTF8 = "1"
+```
+
+- Windows may have long paths disabled (`LongPathsEnabled=0`). `uv sync` of
+  `agent-core` can then hit `MAX_PATH`. **Do not change the global git config**;
+  set session environment variables instead:
+
+```powershell
+$env:UV_CACHE_DIR = "D:\u"
+$env:GIT_CONFIG_COUNT = "1"
+$env:GIT_CONFIG_KEY_0 = "core.longpaths"
+$env:GIT_CONFIG_VALUE_0 = "true"
+uv sync
+```
+
+- A desktop JiuwenSwarm install typically occupies **5173 / 19000 / 18092**.
+  Source `debug` binds other ports (the Web UI is often
+  **http://localhost:6173**). Open the URL printed by the launcher, not the
+  blank desktop WebView2 window.
+
+### Workflow visualization (SwarmFlow)
+
+With SwarmFlow enabled in Team mode, the Web tool panel shows a **Workflow**
+tab: phases top-to-bottom, agents in the same phase side-by-side for
+parallelism. The TUI equivalent is `/swarmflows`.
+
+Do not mix these three graphs:
+
+| Layer | Entry | Runtime | Parallelism |
+|-------|-------|---------|-------------|
+| Skill canvas (`SkillGraphPanel`) | `SymphonyService.plan()` / `symphony_compose_graph` | `orchestration.plan` | A planned skill chain; the Agent then calls skills. **Not Pregel.** |
+| Component DAG | `openjiuwen.core.workflow.Workflow.compile` / `invoke` / `stream` | `PregelLoop` + `TaskExecutorPool` | Ready nodes in one superstep via `wait_all()` |
+| SwarmFlow | Team `run_swarmflow()` / `Runtime.run_workflow` | `EngineProvider` + `TeamWorkerBackend` | `parallel()` fork-join; `pipeline()` has no barrier |
+
+Web implementation:
+
+1. `_consume_workflow_events` **broadcasts native** `workflow.updated` to Web,
+   and still translates it into `team.member` / `team.task` for the task board.
+   Snapshots are persisted to session `metadata.workflow_runs`.
+2. The frontend listens for `workflow.updated`, normalizes it into
+   `sessionStore.workflowRuns`, and lays it out in `WorkflowGraphPanel`.
+3. After a refresh or when opening a historical session, the frontend restores
+   the graph from `session.get_metadata` (`workflow_runs`) and fills in details
+   with `command.workflows` (list + get).
+4. Enable SwarmFlow (`swarmflow.enabled` /
+   `modes.team.jiuwen_team.enable_swarmflow`), **open a new session**, switch to
+   Team mode, then send a task. See the [TUI SwarmFlow guide](TUISwarmFlowGuide.md).
+
+Local checks:
+
+```powershell
+uv run pytest tests/unit_tests/agentserver/test_team_helpers.py -k consume_workflow_events
+cd jiuwenswarm/channels/web/frontend
+npm run test:workflow-graph
+```
+
 #### Backend Code Changes
 
 After modifying backend Python code, run the following commands to reinitialize and start the service:

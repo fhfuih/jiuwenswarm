@@ -93,7 +93,16 @@ export function parseVendorCatalog(value: unknown): VendorPresetMap {
         typeof preset.models_needs_key !== 'boolean' ||
         typeof preset.supports_anthropic !== 'boolean' ||
         !isNullableString(preset.anthropic_base) ||
-        !isNullableString(preset.anthropic_client_provider)
+        !isNullableString(preset.anthropic_client_provider) ||
+        (preset.video_gen_default_model !== undefined && !isNullableString(preset.video_gen_default_model)) ||
+        (preset.video_gen_model_options !== undefined &&
+          (!Array.isArray(preset.video_gen_model_options) ||
+            !preset.video_gen_model_options.every((model) => typeof model === 'string'))) ||
+        (preset.image_gen_default_model !== undefined && !isNullableString(preset.image_gen_default_model)) ||
+        (preset.image_gen_api_base !== undefined && !isNullableString(preset.image_gen_api_base)) ||
+        (preset.image_gen_model_options !== undefined &&
+          (!Array.isArray(preset.image_gen_model_options) ||
+            !preset.image_gen_model_options.every((model) => typeof model === 'string')))
       ) {
         throw new Error('INVALID_VENDOR_CATALOG');
       }

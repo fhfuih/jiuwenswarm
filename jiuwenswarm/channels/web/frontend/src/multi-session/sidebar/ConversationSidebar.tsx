@@ -86,6 +86,8 @@ interface ConversationSidebarProps {
   floating?: boolean;
   /** 切换侧边栏收起/展开 */
   onToggleCollapse?: () => void;
+  /** 打开首页项目下的 Designer 执行图 */
+  onOpenDesigner?: (graphId: string, projectId: string) => void;
 }
 
 interface ConversationListItemProps {
@@ -746,6 +748,7 @@ export function ConversationSidebar({
   collapsed = false,
   floating = false,
   onToggleCollapse,
+  onOpenDesigner,
 }: ConversationSidebarProps) {
   const { t } = useTranslation();
   const runtimes = useChatStore((state) => state.runtimes);
@@ -781,6 +784,7 @@ export function ConversationSidebar({
     sessionVisibility,
     pinnedSessions,
     expandedProjectIds,
+    designerGraphs,
     setSelectedProject,
     toggleProjectExpanded,
     createProject,
@@ -847,6 +851,16 @@ export function ConversationSidebar({
   }, [loadCronJobs]);
 
   // 按项目归属定时任务
+  const graphsByProject = useMemo(() => {
+    const map = new Map<string, typeof designerGraphs>();
+    for (const graph of designerGraphs) {
+      const current = map.get(graph.project_id) || [];
+      current.push(graph);
+      map.set(graph.project_id, current);
+    }
+    return map;
+  }, [designerGraphs]);
+
   const jobsByProject = useMemo(() => {
     const map = new Map<string, SidebarCronJob[]>();
     for (const project of projects) {
@@ -1226,9 +1240,29 @@ export function ConversationSidebar({
         />
         {expanded ? (
           <div className="conversation-sidebar__group-list" data-testid="multi-session-project-group-list">
+            {(graphsByProject.get(project.project_id) || []).map((graph) => (
+              <button
+                key={graph.graph_id}
+                type="button"
+                className="conversation-sidebar__designer-row"
+                onClick={() => onOpenDesigner?.(graph.graph_id, graph.project_id)}
+                title={graph.title}
+                data-testid={`multi-session-designer-graph-${graph.graph_id}`}
+              >
+                <span className="conversation-sidebar__designer-row-name">{graph.title}</span>
+                <span className="conversation-sidebar__designer-row-meta">
+                  {graph.has_video
+                    ? t('multiSession.project.designerHasVideo')
+                    : t('multiSession.project.designerGraph')}
+                </span>
+              </button>
+            ))}
             {(jobsByProject.get(project.project_id) || []).map((job) => renderCronJob(job, project.project_id, true))}
             {sessionsForProject.length > 0 ? sessionsForProject.map((session) => renderSession(session, { nested: true, projectMenu: true })) : (
-              (jobsByProject.get(project.project_id) || []).length === 0 ? <div className="conversation-sidebar__empty" data-testid="multi-session-project-group-empty">{t('multiSession.project.noConversations')}</div> : null
+              (jobsByProject.get(project.project_id) || []).length === 0
+              && (graphsByProject.get(project.project_id) || []).length === 0
+                ? <div className="conversation-sidebar__empty" data-testid="multi-session-project-group-empty">{t('multiSession.project.noConversations')}</div>
+                : null
             )}
             {renderSessionPagination(project.project_id, true)}
           </div>

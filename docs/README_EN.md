@@ -184,7 +184,7 @@ This page collects common JiuwenSwarm usage instructions, feature documentation,
     <tr>
       <td width="22%"><strong>Developer Documentation</strong></td>
       <td width="28%"><a href="en/developer_guide.md">Developer Guide</a></td>
-      <td width="50%">Source setup, debugging flow, and secondary development materials.</td>
+      <td width="50%">Source setup, Windows debug notes, SwarmFlow workflow visualization, and secondary development materials.</td>
     </tr>
     <tr>
       <th colspan="3" align="left" bgcolor="#f3f4f6"><h3>🛠️ Development Practices</h3></th>

@@ -109,18 +109,6 @@ TEAM_CANONICAL_MODES: frozenset[str] = frozenset(
     }
 )
 
-# Modes whose traces are eligible for the first-phase single-Agent trajectory
-# UI. This is deliberately an allowlist: future modes must opt in explicitly
-# instead of becoming readable merely because they are not known Team modes.
-SINGLE_AGENT_CANONICAL_MODES: frozenset[str] = frozenset(
-    {
-        NEW_AGENT_WORK_NORMAL,
-        NEW_AGENT_WORK_PLAN,
-        NEW_AGENT_CODE_NORMAL,
-        NEW_AGENT_CODE_PLAN,
-    }
-)
-
 # 所有表示"正处于 plan"的 canonical 模式。
 PLAN_CANONICAL_MODES: frozenset[str] = frozenset(
     {
@@ -255,11 +243,6 @@ def is_plan_mode(canonical_mode: Any) -> bool:
 def is_team_mode(canonical_mode: Any) -> bool:
     """canonical 模式是否为集群。"""
     return canonicalize_mode_text(canonical_mode) in TEAM_CANONICAL_MODES
-
-
-def is_single_agent_mode(canonical_mode: Any) -> bool:
-    """Return whether *mode* is explicitly eligible for single-Agent flows."""
-    return canonicalize_mode_text(canonical_mode) in SINGLE_AGENT_CANONICAL_MODES
 
 
 def is_team_plan_mode(mode: Any) -> bool:
@@ -449,7 +432,6 @@ def resolve_request_mode(
 
 __all__ = [
     "PLAN_CANONICAL_MODES",
-    "SINGLE_AGENT_CANONICAL_MODES",
     "MODE_ALIASES",
     "DEPRECATION_MAP",
     "NEW_CANONICAL_MODES",
@@ -462,7 +444,6 @@ __all__ = [
     "canonicalize_mode_text",
     "compose_web_mode",
     "deprecate_mode",
-    "is_single_agent_mode",
     "is_code_profile_mode",
     "is_new_canonical_mode",
     "is_plan_mode",

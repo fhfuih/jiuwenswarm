@@ -1,4 +1,4 @@
-export type TeamPanelActiveTab = 'planning' | 'team' | 'artifacts' | 'review';
+export type TeamPanelActiveTab = 'planning' | 'team' | 'workflow' | 'artifacts' | 'review';
 export type TeamPanelDetailTab = 'members' | 'group';
 
 export interface TeamPanelState {
@@ -18,6 +18,7 @@ export const DEFAULT_TEAM_PANEL_STATE: TeamPanelState = {
 const VALID_ACTIVE_TABS = new Set<TeamPanelActiveTab>([
   'planning',
   'team',
+  'workflow',
   'artifacts',
   'review',
 ]);

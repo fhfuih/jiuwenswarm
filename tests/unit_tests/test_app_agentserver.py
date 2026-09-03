@@ -28,23 +28,14 @@ async def test_run_does_not_delete_agent_teams_directory(monkeypatch: pytest.Mon
             return None
 
     class _FakeServer:
-        def __init__(self) -> None:
-            self.agent_manager = object()
-
         async def start(self) -> None:
             server_events.append("start")
 
         async def stop(self) -> None:
             server_events.append("stop")
 
-        def get_agent_manager(self) -> object:
-            return self.agent_manager
-
         def schedule_image_modality_warmup(self, *, reason: str) -> None:
             _ = reason
-
-        async def send_push(self, payload: object) -> None:
-            _ = payload
 
     class _FakeExtensionManager:
         def __init__(self, registry) -> None:
@@ -57,11 +48,8 @@ async def test_run_does_not_delete_agent_teams_directory(monkeypatch: pytest.Mon
         def list_extensions() -> list[object]:
             return []
 
-    async def _fake_bootstrap_daemon(*, stop_event, agent_manager) -> None:
-        _ = stop_event, agent_manager
-        return None
-
-    async def _fake_image_modality_warmup(*_args, **_kwargs) -> None:
+    async def _fake_bootstrap_daemon(*, stop_event) -> None:
+        _ = stop_event
         return None
 
     def _fake_rmtree(path, *args, **kwargs) -> None:
@@ -73,10 +61,6 @@ async def test_run_does_not_delete_agent_teams_directory(monkeypatch: pytest.Mon
     monkeypatch.setattr(
         "jiuwenswarm.agents.harness.team.remote_member_bootstrap.run_teammate_bootstrap_daemon",
         _fake_bootstrap_daemon,
-    )
-    monkeypatch.setattr(
-        "jiuwenswarm.server.runtime.image_modality_warmup.warm_image_modality_cache",
-        _fake_image_modality_warmup,
     )
     monkeypatch.setattr(
         "jiuwenswarm.server.agent_ws_server.AgentWebSocketServer.get_instance",

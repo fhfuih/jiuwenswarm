@@ -41,37 +41,6 @@ class _ModelContext:
         self.messages.append(message)
 
 
-def _minimal_planned_graph(status="ready"):
-    nodes = (
-        {}
-        if status == "no_plan"
-        else {
-            "writer": {"label": "Writer", "metadata": {"type": "skill"}},
-            "reviewer": {"label": "Reviewer", "metadata": {"type": "skill"}},
-        }
-    )
-    return {
-        "graph": {
-            "id": "plan-1",
-            "type": "planned_graph",
-            "directed": True,
-            "metadata": {"status": status},
-            "nodes": nodes,
-            "edges": (
-                []
-                if status == "no_plan"
-                else [
-                    {
-                        "source": "writer",
-                        "target": "reviewer",
-                        "relation": "can_feed",
-                    }
-                ]
-            ),
-        }
-    }
-
-
 def test_symphony_tool_stream_handler_matches_only_compose_tool():
     handler = SymphonyToolStreamHandler()
 
@@ -112,14 +81,7 @@ def _model_ctx(messages):
 
 
 @pytest.mark.asyncio
-async def test_stream_event_rail_strips_image_blocks_when_read_image_multimodal_disabled(
-    monkeypatch,
-):
-    monkeypatch.setattr(
-        "jiuwenswarm.agents.harness.common.rails.stream_event_rail."
-        "should_enable_read_image_multimodal",
-        lambda _agent: True,
-    )
+async def test_stream_event_rail_strips_image_blocks_when_read_image_multimodal_disabled():
     rail = JiuSwarmStreamEventRail()
     message = UserMessage(
         content=[
@@ -217,13 +179,22 @@ async def test_stream_event_rail_emits_beam_progress_as_tool_update():
 
 
 @pytest.mark.asyncio
-async def test_stream_event_rail_does_not_force_finish_normal_compose_result():
+async def test_stream_event_rail_force_finishes_symphony_compose_graph_result():
     rail = JiuSwarmStreamEventRail()
     session = _StreamSession()
     result = {
         "success": True,
-        "planned_graph": _minimal_planned_graph(),
+        "direct_display": True,
+        "content": "## Symphony plan\n\n```mermaid\nflowchart LR\n  A --> B\n```",
         "graph_status": {"success": True, "exists": True, "stale": False},
+        "graph_build": {"rebuilt": False, "reason": "not_required"},
+        "beam_search": {
+            "round_index": 2,
+            "graph": {
+                "nodes": [{"id": "skill-a", "status": "final"}],
+                "edges": [],
+            },
+        },
     }
     ctx = _ctx(session, "symphony_compose_graph", tool_result=result)
 
@@ -241,20 +212,28 @@ async def test_stream_event_rail_does_not_force_finish_normal_compose_result():
             tool_results.append(tool_result)
     assert tool_results[0]["raw_output"] == result
     assert tool_results[0]["graph_status"] == result["graph_status"]
-    assert "direct_display" not in tool_results[0]
-    assert "followup_action" not in tool_results[0]
+    assert tool_results[0]["graph_build"] == result["graph_build"]
+    assert "beam_search" not in tool_results[0]
+    assert tool_results[0]["raw_output"]["beam_search"] == result["beam_search"]
+    assert tool_results[0]["direct_display"] is True
     direct_messages = [chunk for chunk in session.chunks if chunk.type == "chat.final"]
     assert direct_messages == []
-    assert ctx.force_finish_requests == []
+    assert ctx.force_finish_requests == [
+        {"output": result["content"], "result_type": "answer"}
+    ]
 
 
 @pytest.mark.asyncio
-async def test_stream_event_rail_does_not_add_skill_gap_followup_to_compose_result():
+async def test_stream_event_rail_continues_after_symphony_skill_gap_result():
     rail = JiuSwarmStreamEventRail()
     session = _StreamSession()
     result = {
         "success": True,
-        "planned_graph": _minimal_planned_graph("no_plan"),
+        "direct_display": True,
+        "display_format": "markdown",
+        "content": "## Symphony plan\n\nNo suitable skill found.",
+        "continue_after_display": True,
+        "followup_action": "external_skill_discovery",
     }
     ctx = _ctx(session, "symphony_compose_graph", tool_result=result)
 
@@ -266,8 +245,8 @@ async def test_stream_event_rail_does_not_add_skill_gap_followup_to_compose_resu
         for chunk in session.chunks
         if chunk.type == "tool_result"
     ]
-    assert "continue_after_display" not in tool_results[0]
-    assert "followup_action" not in tool_results[0]
+    assert tool_results[0]["continue_after_display"] is True
+    assert tool_results[0]["followup_action"] == "external_skill_discovery"
     assert not any(chunk.type == "chat.final" for chunk in session.chunks)
     assert ctx.force_finish_requests == []
 

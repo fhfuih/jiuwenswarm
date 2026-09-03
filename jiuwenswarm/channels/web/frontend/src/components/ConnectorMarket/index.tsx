@@ -193,7 +193,7 @@ export function ConnectorMarketPanel({ onUseExample, onUsePluginExample, onUseEx
   const handleUseNotWired = () => window.alert(t('connectorMarket.card.useNotWired'));
 
   return (
-    <div className="relative h-full w-full bg-bg" data-testid="connector-market-panel">
+    <div className="relative h-full w-full bg-bg">
       {view.name === 'market' && (
         <MarketplacePage
           topTab={topTab}

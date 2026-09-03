@@ -3,6 +3,7 @@
 import asyncio
 import importlib
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -1148,42 +1149,6 @@ async def test_config_get_returns_setup_guide_switch(monkeypatch, raw_config, ex
     assert channel.responses[-1]["payload"]["setup_guide_enabled"] == expected
 
 
-@pytest.mark.asyncio
-async def test_trajectory_ui_switch_round_trips_through_config_rpc(monkeypatch):
-    channel = FakeWebChannel()
-    persisted: list[bool] = []
-    monkeypatch.setattr(
-        app_web_handlers,
-        "get_config_raw",
-        lambda: {"trajectory_ui": {"enabled": False}},
-    )
-    monkeypatch.setattr(
-        app_web_handlers,
-        "get_config",
-        lambda: {"trajectory_ui": {"enabled": False}},
-    )
-    monkeypatch.setattr(
-        app_web_handlers,
-        "update_trajectory_ui_in_config",
-        lambda enabled: persisted.append(enabled),
-    )
-    _register_web_handlers(WebHandlersBindParams(channel=channel))
-
-    await channel.methods["config.get"](object(), "req-trajectory-get", {}, "session")
-    assert channel.responses[-1]["payload"]["trajectory_ui_enabled"] == "false"
-
-    await channel.methods["config.set"](
-        object(),
-        "req-trajectory-set",
-        {"trajectory_ui_enabled": "true"},
-        "session",
-    )
-    assert persisted == [True]
-    assert channel.responses[-1]["payload"]["updated"] == ["trajectory_ui_enabled"]
-    change_set = app_web_handlers._ConfigChangeSet({}, ["trajectory_ui_enabled"])
-    assert change_set.reload_scopes == {"agent_runtime", "web_ui"}
-
-
 def test_media_capability_config_uses_multimodal_hot_reload_scope():
     for env_key in app_web_handlers._MULTIMODAL_RELOAD_ENV_KEYS:
         change_set = app_web_handlers._ConfigChangeSet({env_key: "true"}, [])
@@ -1191,7 +1156,7 @@ def test_media_capability_config_uses_multimodal_hot_reload_scope():
 
 
 def test_media_capability_provider_identity_has_exact_env_contract():
-    for modality in ("vision", "audio", "video"):
+    for modality in ("vision", "audio", "video", "image_gen", "video_gen"):
         prefix = modality.upper()
         assert app_web_handlers._CONFIG_SET_ENV_MAP[f"{modality}_endpoint_profile"] == f"{prefix}_ENDPOINT_PROFILE"
         assert app_web_handlers._CONFIG_SET_ENV_MAP[f"{modality}_vendor_key"] == f"{prefix}_VENDOR_KEY"
@@ -1246,6 +1211,130 @@ async def test_media_capability_provider_identity_round_trips_through_config_rpc
     assert payload["vision_endpoint_profile"] == "dashscope"
     assert payload["vision_vendor_key"] == "alibaba"
     assert payload["vision_plan"] == "token_plan"
+
+
+@pytest.mark.parametrize(
+    ("param_key", "env_key"),
+    [
+        ("video_gen_api_base", "VIDEO_GEN_API_BASE"),
+        ("video_gen_api_key", "VIDEO_GEN_API_KEY"),
+        ("video_gen_model", "VIDEO_GEN_MODEL_NAME"),
+        ("video_gen_provider", "VIDEO_GEN_PROVIDER"),
+        ("image_gen_api_base", "IMAGE_GEN_API_BASE"),
+        ("image_gen_api_key", "IMAGE_GEN_API_KEY"),
+        ("image_gen_model", "IMAGE_GEN_MODEL_NAME"),
+        ("image_gen_provider", "IMAGE_GEN_PROVIDER"),
+    ],
+)
+def test_video_gen_keys_are_settable_from_config_panel(param_key, env_key):
+    """video_gen / image_gen must be readable/writable via config.get / config.set."""
+    assert app_web_handlers._CONFIG_SET_ENV_MAP.get(param_key) == env_key
+    assert param_key in app_web_handlers.CONFIG_KEYS
+
+
+@pytest.mark.parametrize(
+    "env_key",
+    [
+        "VIDEO_GEN_API_BASE",
+        "VIDEO_GEN_API_KEY",
+        "VIDEO_GEN_MODEL_NAME",
+        "VIDEO_GEN_PROVIDER",
+        "VIDEO_GEN_ENDPOINT_PROFILE",
+        "VIDEO_GEN_ENABLED",
+        "IMAGE_GEN_API_BASE",
+        "IMAGE_GEN_API_KEY",
+        "IMAGE_GEN_MODEL_NAME",
+        "IMAGE_GEN_PROVIDER",
+        "IMAGE_GEN_ENDPOINT_PROFILE",
+        "IMAGE_GEN_ENABLED",
+    ],
+)
+def test_video_gen_keys_trigger_multimodal_reload(env_key):
+    """Saving video_gen / image_gen config must yield the multimodal reload scope."""
+    assert env_key in app_web_handlers._MULTIMODAL_RELOAD_ENV_KEYS
+    change = app_web_handlers._ConfigChangeSet(env_updates={env_key: "x"}, yaml_updated=[])
+    assert change.reload_scopes == {"multimodal"}
+
+
+@pytest.mark.asyncio
+async def test_config_set_persists_video_gen_keys_to_env_file(tmp_path, monkeypatch):
+    """VIDEO_GEN_* written by config.set must land in .env and read back via config.get."""
+    env_file = tmp_path / ".env"
+    env_file.write_text('API_KEY="existing"\n', encoding="utf-8")
+    monkeypatch.setattr(app_web_handlers, "_ENV_FILE", env_file)
+    monkeypatch.setattr(app_web_handlers, "get_config", lambda: {"models": {"defaults": []}})
+    monkeypatch.setattr(app_web_handlers, "get_config_raw", lambda: {})
+    monkeypatch.setattr(
+        "jiuwenswarm.extensions.registry.ExtensionRegistry.get_instance",
+        lambda: type(
+            "Registry",
+            (),
+            {"get_crypto_provider": lambda self: None},
+        )(),
+    )
+    for env_key in ("VIDEO_GEN_API_BASE", "VIDEO_GEN_API_KEY", "VIDEO_GEN_MODEL_NAME", "VIDEO_GEN_PROVIDER"):
+        monkeypatch.setenv(env_key, "")
+
+    channel = FakeWebChannel()
+    _register_web_handlers(WebHandlersBindParams(channel=channel))
+
+    await channel.methods["config.set"](
+        object(),
+        "req-set",
+        {
+            "video_gen_api_base": "https://dashscope.aliyuncs.com/api/v1",
+            "video_gen_api_key": "sk-video-gen",
+            "video_gen_model": "wan2.6-t2v",
+            "video_gen_provider": "OpenAI",
+        },
+        "sess-1",
+    )
+
+    assert channel.responses[-1]["ok"] is True
+    updated = channel.responses[-1]["payload"]["updated"]
+    assert set(updated) == {
+        "video_gen_api_base",
+        "video_gen_api_key",
+        "video_gen_model",
+        "video_gen_provider",
+    }
+
+    written = env_file.read_text(encoding="utf-8")
+    assert 'VIDEO_GEN_API_KEY="sk-video-gen"' in written
+    assert 'VIDEO_GEN_PROVIDER="OpenAI"' in written
+    assert 'API_KEY="existing"' in written
+    assert os.environ["VIDEO_GEN_API_KEY"] == "sk-video-gen"
+
+    await channel.methods["config.get"](object(), "req-get", {}, "sess-1")
+    payload = channel.responses[-1]["payload"]
+    assert payload["video_gen_model"] == "wan2.6-t2v"
+    assert payload["video_gen_provider"] == "OpenAI"
+
+
+@pytest.mark.asyncio
+async def test_config_set_rejects_unknown_video_gen_provider(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    monkeypatch.setattr(app_web_handlers, "_ENV_FILE", env_file)
+    monkeypatch.setattr(app_web_handlers, "get_config", lambda: {"models": {"defaults": []}})
+    monkeypatch.setattr(app_web_handlers, "get_config_raw", lambda: {})
+    monkeypatch.setattr(
+        "jiuwenswarm.extensions.registry.ExtensionRegistry.get_instance",
+        lambda: type(
+            "Registry",
+            (),
+            {"get_crypto_provider": lambda self: None},
+        )(),
+    )
+
+    channel = FakeWebChannel()
+    _register_web_handlers(WebHandlersBindParams(channel=channel))
+
+    await channel.methods["config.set"](
+        object(), "req-set", {"video_gen_provider": "NotAProvider"}, "sess-1",
+    )
+
+    assert channel.responses[-1]["ok"] is False
+    assert channel.responses[-1]["code"] == "BAD_REQUEST"
 
 
 @pytest.mark.asyncio
@@ -2452,6 +2541,12 @@ def test_web_exposes_graph_methods_and_rejects_legacy_symphony_methods():
         "symphony.evolution_rebuild",
     }
     assert legacy_symphony_methods.isdisjoint(app_web_handlers._FORWARD_REQ_METHODS)
+
+
+def test_web_forwards_swarmflow_workflow_rpc_methods():
+    methods = {"command.workflows", "chat.swarmflow_reply"}
+    assert methods.issubset(app_web_handlers._FORWARD_REQ_METHODS)
+    assert methods.issubset(app_web_handlers._FORWARD_NO_LOCAL_HANDLER_METHODS)
 
 
 def test_web_forwards_only_canonical_personal_context_rpc_methods():

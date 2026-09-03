@@ -48,7 +48,6 @@ from openjiuwen.extensions.external_provider.openai_auth.openai_account_models i
 from jiuwenswarm.common.config import (
     DEFAULT_SWARMFLOW_ENABLED,
     EXTERNAL_CLI_AGENTS_CONFIG_PATH,
-    SWARMFLOW_BUDGET_CONFIG_PATH,
     SWARMFLOW_ENABLED_CONFIG_PATH,
     get_config,
     get_config_raw,
@@ -74,11 +73,9 @@ from jiuwenswarm.common.config import (
     update_memory_forbidden_description_in_config,
     update_external_cli_agents_in_config,
     update_swarmflow_enabled_in_config,
-    update_swarmflow_budget_in_config,
     update_a2ui_in_config,
     update_updater_in_config,
     update_proactive_recommendation_in_config,
-    update_trajectory_ui_in_config,
     update_skill_evolution_enabled_in_config,
 )
 from jiuwenswarm.common.kv_cache_affinity_config import (
@@ -152,6 +149,18 @@ _MULTIMODAL_RELOAD_ENV_KEYS = {
     "VISION_ENABLED",
     "AUDIO_ENABLED",
     "VIDEO_ENABLED",
+    "VIDEO_GEN_PROVIDER",
+    "VIDEO_GEN_MODEL_NAME",
+    "VIDEO_GEN_API_BASE",
+    "VIDEO_GEN_API_KEY",
+    "VIDEO_GEN_ENDPOINT_PROFILE",
+    "VIDEO_GEN_ENABLED",
+    "IMAGE_GEN_PROVIDER",
+    "IMAGE_GEN_MODEL_NAME",
+    "IMAGE_GEN_API_BASE",
+    "IMAGE_GEN_API_KEY",
+    "IMAGE_GEN_ENDPOINT_PROFILE",
+    "IMAGE_GEN_ENABLED",
 }
 
 
@@ -188,8 +197,6 @@ class _ConfigChangeSet:
                 scopes.add("proactive")
             elif key_text.startswith("symphony") or key_text.startswith("skill_retrieval"):
                 scopes.add("agent_runtime")
-            elif key_text == "trajectory_ui_enabled":
-                scopes.update({"agent_runtime", "web_ui"})
             elif key_text.startswith("a2ui_") or key_text == "setup_guide_enabled":
                 scopes.add("web_ui")
             else:
@@ -673,15 +680,12 @@ _FORWARD_REQ_METHODS = frozenset({
     "command.goal",
     "command.btw",
     "command.compact",
+    "command.workflows",
     "chat.send",
     "chat.interrupt",
     "chat.resume",
     "chat.user_answer",
     "chat.swarmflow_reply",
-    "swarmflow.pause",
-    "swarmflow.resume",
-    "swarmflow.stop",
-    "command.workflows",
     "history.get",
     # "tts.synthesize",
     "skills.marketplace.list",
@@ -842,13 +846,11 @@ _FORWARD_NO_LOCAL_HANDLER_METHODS = frozenset({
     "command.goal",
     "command.btw",
     "command.compact",
+    "command.workflows",
+    "chat.swarmflow_reply",
     "team.snapshot",
     "team.history.get",
     "team.mq.publish",
-    "command.workflows",
-    "swarmflow.pause",
-    "swarmflow.resume",
-    "swarmflow.stop",
     "skills.marketplace.list",
     "skills.list",
     "skills.installed",
@@ -975,7 +977,7 @@ _FORWARD_NO_LOCAL_HANDLER_METHODS = frozenset({
 })
 
 # 配置信息：config.get 返回、config.set 可修改的键（前端 param 名 -> 环境变量名）
-# default 模型 + video/audio/vision 多模型
+# default 模型 + video/audio/vision/image_gen/video_gen 多模型
 _CONFIG_SET_ENV_MAP = {
     # default 模型（主对话）
     "model_provider": "MODEL_PROVIDER",
@@ -983,7 +985,7 @@ _CONFIG_SET_ENV_MAP = {
     "api_base": "API_BASE",
     "api_key": "API_KEY",
     "endpoint_profile": "ENDPOINT_PROFILE",
-    # video 模型
+    # video vision 模型（视频理解）
     "video_api_base": "VIDEO_API_BASE",
     "video_api_key": "VIDEO_API_KEY",
     "video_model": "VIDEO_MODEL_NAME",
@@ -1010,6 +1012,24 @@ _CONFIG_SET_ENV_MAP = {
     "vision_vendor_key": "VISION_VENDOR_KEY",
     "vision_plan": "VISION_PLAN",
     "vision_enabled": "VISION_ENABLED",
+    # video_gen model (text-to-video)
+    "video_gen_api_base": "VIDEO_GEN_API_BASE",
+    "video_gen_api_key": "VIDEO_GEN_API_KEY",
+    "video_gen_model": "VIDEO_GEN_MODEL_NAME",
+    "video_gen_provider": "VIDEO_GEN_PROVIDER",
+    "video_gen_endpoint_profile": "VIDEO_GEN_ENDPOINT_PROFILE",
+    "video_gen_vendor_key": "VIDEO_GEN_VENDOR_KEY",
+    "video_gen_plan": "VIDEO_GEN_PLAN",
+    "video_gen_enabled": "VIDEO_GEN_ENABLED",
+    # image_gen model (text-to-image)
+    "image_gen_api_base": "IMAGE_GEN_API_BASE",
+    "image_gen_api_key": "IMAGE_GEN_API_KEY",
+    "image_gen_model": "IMAGE_GEN_MODEL_NAME",
+    "image_gen_provider": "IMAGE_GEN_PROVIDER",
+    "image_gen_endpoint_profile": "IMAGE_GEN_ENDPOINT_PROFILE",
+    "image_gen_vendor_key": "IMAGE_GEN_VENDOR_KEY",
+    "image_gen_plan": "IMAGE_GEN_PLAN",
+    "image_gen_enabled": "IMAGE_GEN_ENABLED",
     # 其他
     "email_address": "EMAIL_ADDRESS",
     "email_token": "EMAIL_TOKEN",
@@ -1056,12 +1076,10 @@ _CONFIG_YAML_KEYS = frozenset({
     "memory_forbidden_enabled",
     "memory_forbidden_description",
     "a2ui_enabled",
-    "trajectory_ui_enabled",
     "proactive_recommendation_enabled",
     "proactive_recommendation_max_recommend_per_day",
     "proactive_recommendation_max_rounds_per_tick",
     "swarmflow_enabled",
-    "swarmflow_budget",
     "external_cli_agent_claude_enabled",
     "external_cli_agent_claude_use_builtin",
     "external_cli_agent_claude_cli_path",
@@ -1249,11 +1267,7 @@ def _flatten_swarmflow_for_config_panel(raw: dict[str, Any]) -> dict[str, str]:
         SWARMFLOW_ENABLED_CONFIG_PATH,
         DEFAULT_SWARMFLOW_ENABLED,
     )
-    budget = _get_nested_config_value(raw, SWARMFLOW_BUDGET_CONFIG_PATH, None)
-    flat = {"swarmflow_enabled": "true" if enabled else "false"}
-    if budget is not None:
-        flat["swarmflow_budget"] = str(budget)
-    return flat
+    return {"swarmflow_enabled": "true" if enabled else "false"}
 
 
 def _flatten_external_cli_agents_for_config_panel(raw: dict[str, Any]) -> dict[str, str]:
@@ -2840,10 +2854,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
             memory_desc = memory_cfg.get("description") or {}
             payload["memory_forbidden_description"] = memory_desc
             payload.update(get_a2ui_config_payload(raw))
-            trajectory_cfg = raw.get("trajectory_ui") or {}
-            payload["trajectory_ui_enabled"] = (
-                "true" if trajectory_cfg.get("enabled", False) else "false"
-            )
             payload.update(_flatten_swarmflow_for_config_panel(raw))
             payload.update(_flatten_external_cli_agents_for_config_panel(raw))
             payload.update(_flatten_symphony_for_config_panel(raw))
@@ -2874,7 +2884,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
             payload.setdefault("swarmflow_enabled", "true" if DEFAULT_SWARMFLOW_ENABLED else "false")
             for key, value in get_default_a2ui_config_payload().items():
                 payload.setdefault(key, value)
-            payload.setdefault("trajectory_ui_enabled", "false")
             for key, (_, value_type, default) in {
                 **_SYMPHONY_CONFIG_SPECS,
                 **_SKILL_RETRIEVAL_CONFIG_SPECS,
@@ -3108,8 +3117,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
                     update_memory_forbidden_description_in_config({preferred_lang: desc_val})
                 elif param_key == "swarmflow_enabled":
                     update_swarmflow_enabled_in_config(parsed)
-                elif param_key == "swarmflow_budget":
-                    update_swarmflow_budget_in_config(str(val).strip())
                 elif param_key in _EXTERNAL_CLI_AGENT_CONFIG_KEYS:
                     if not external_cli_agents_updated:
                         try:
@@ -3142,8 +3149,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
                     if not ok:
                         raise _ConfigBadRequest(error or "invalid A2UI config")
                     update_a2ui_in_config(update)
-                elif param_key == "trajectory_ui_enabled":
-                    update_trajectory_ui_in_config(parsed)
                 elif param_key == "proactive_recommendation_enabled":
                     update_proactive_recommendation_in_config({"enabled": parsed})
                 elif param_key == "proactive_recommendation_max_recommend_per_day":
@@ -4438,6 +4443,166 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
             label="session.delete",
         )
 
+    async def _designer_graph_list(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_GRAPH_LIST,
+            label="designer.graph.list",
+        )
+
+    async def _designer_graph_get(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_GRAPH_GET,
+            label="designer.graph.get",
+        )
+
+    async def _designer_graph_save(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_GRAPH_SAVE,
+            label="designer.graph.save",
+        )
+
+    async def _designer_graph_bootstrap(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_GRAPH_BOOTSTRAP,
+            label="designer.graph.bootstrap",
+        )
+
+    async def _designer_graph_patch(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_GRAPH_PATCH,
+            label="designer.graph.patch",
+        )
+
+    async def _designer_run_start(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_RUN_START,
+            label="designer.run.start",
+        )
+
+    async def _designer_run_get(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_RUN_GET,
+            label="designer.run.get",
+        )
+
+    async def _designer_run_pause(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_RUN_PAUSE,
+            label="designer.run.pause",
+        )
+
+    async def _designer_run_cancel(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_RUN_CANCEL,
+            label="designer.run.cancel",
+        )
+
+    async def _designer_run_choose_output(ws, req_id, params, session_id, user_id=None):
+        from jiuwenswarm.common.schema.message import ReqMethod
+        from jiuwenswarm.gateway.routing.e2a_proxy import proxy_unary_request
+
+        await proxy_unary_request(
+            channel=channel,
+            agent_client=_resolve(agent_client),
+            ws=ws,
+            req_id=req_id,
+            params=params if isinstance(params, dict) else {},
+            session_id=session_id,
+            user_id=user_id,
+            req_method=ReqMethod.DESIGNER_RUN_CHOOSE_OUTPUT,
+            label="designer.run.choose_output",
+        )
+
     async def _project_list(ws, req_id, params, session_id, user_id=None):
         """获取项目列表(含统计),已排序,包含默认项目。
 
@@ -5263,13 +5428,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
         if isinstance(request_id, str) and request_id:
             payload["request_id"] = request_id
         await channel.send_response(ws, req_id, ok=True, payload=payload)
-
-    async def _chat_swarmflow_reply(ws, req_id, params, session_id):
-        # Empty-ack shell — standard 3-layer routing forwards the reply to the
-        # agent adapter, which builds HumanAgentMessage and calls team_manager.
-        await channel.send_response(
-            ws, req_id, ok=True, payload={"accepted": True, "session_id": session_id}
-        )
 
     async def _history_get(ws, req_id, params, session_id):
         payload = {"accepted": True, "session_id": session_id}
@@ -6504,6 +6662,17 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
     channel.register_method("session.rename", _session_rename)
     channel.register_method("session.pin", _session_pin)
 
+    channel.register_method("designer.graph.get", _designer_graph_get)
+    channel.register_method("designer.graph.list", _designer_graph_list)
+    channel.register_method("designer.graph.save", _designer_graph_save)
+    channel.register_method("designer.graph.bootstrap", _designer_graph_bootstrap)
+    channel.register_method("designer.graph.patch", _designer_graph_patch)
+    channel.register_method("designer.run.start", _designer_run_start)
+    channel.register_method("designer.run.get", _designer_run_get)
+    channel.register_method("designer.run.pause", _designer_run_pause)
+    channel.register_method("designer.run.cancel", _designer_run_cancel)
+    channel.register_method("designer.run.choose_output", _designer_run_choose_output)
+
     channel.register_method("project.list", _project_list)
     channel.register_method("project.info", _project_info)
     channel.register_method("project.get_sessions", _project_get_sessions)
@@ -6580,7 +6749,6 @@ def _register_web_handlers(bind: WebHandlersBindParams) -> None:
     channel.register_method("chat.resume", _chat_resume)
     channel.register_method("chat.interrupt", _chat_interrupt)
     channel.register_method("chat.user_answer", _chat_user_answer)
-    channel.register_method("chat.swarmflow_reply", _chat_swarmflow_reply)
     channel.register_method("history.get", _history_get)
     channel.register_method("locale.get_conf", _locale_get_conf)
     channel.register_method("locale.set_conf", _locale_set_conf)

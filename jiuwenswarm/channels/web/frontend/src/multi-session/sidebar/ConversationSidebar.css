@@ -359,6 +359,7 @@
 .conversation-sidebar__group {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
 .conversation-sidebar__body > .conversation-sidebar__group + .conversation-sidebar__group {
@@ -368,6 +369,7 @@
 .conversation-sidebar__group-list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
 .conversation-sidebar__pagination {
@@ -1001,6 +1003,41 @@
 
 .conversation-sidebar__session-wrapper--nested .conversation-sidebar__cron-sessions-empty {
   padding-left: 44px;
+}
+
+.conversation-sidebar__designer-row {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px 0 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.conversation-sidebar__designer-row:hover {
+  background: var(--color-surface-hover);
+}
+
+.conversation-sidebar__designer-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.conversation-sidebar__designer-row-meta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--color-text-muted, var(--color-text-secondary));
 }
 
 .conversation-sidebar__cron-row:hover {

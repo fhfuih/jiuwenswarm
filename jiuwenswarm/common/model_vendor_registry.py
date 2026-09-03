@@ -92,12 +92,29 @@ class VendorPreset:
     # OpenAI 协议端点方言(deepseek/openrouter/siliconflow/dashscope/openai_compatible/...);
     # None=不写、走默认 openai;Anthropic 协议(client_provider=Anthropic)时此字段被 core 忽略
     endpoint_profile: str | None = None
+    # Text-to-video models. ``/v1/models`` is the chat catalog (e.g. MiniMax-M*)
+    # and does not list video-generation IDs such as MiniMax-H3.
+    video_gen_default_model: str | None = None
+    video_gen_model_options: tuple[str, ...] | None = None
+    # Text-to-image models. Chat ``/v1/models`` does not list wanx / qwen-image IDs,
+    # and DashScope image generation uses /api/v1 rather than compatible-mode.
+    image_gen_default_model: str | None = None
+    image_gen_model_options: tuple[str, ...] | None = None
+    image_gen_api_base: str | None = None
 
 
 # core 的 ProviderType.Anthropic 枚举值。当用户在前端选 "Anthropic 格式" 时,
 # 落库的 client_provider 用这个值(core 会实例化 AnthropicModelClient 走 /v1/messages)。
 # Anthropic 格式可用的充要条件:该预设的 anthropic_base 非空。
 ANTHROPIC_CLIENT_PROVIDER = "Anthropic"
+
+# MiniMax video generation (Hailuo H3) uses POST /v2/video_generation.
+# These IDs are not returned by GET /v1/models (chat / M-series only).
+MINIMAX_VIDEO_GEN_MODELS: tuple[str, ...] = ("MiniMax-H3", "MiniMax-H3-Max")
+
+# DashScope text-to-image. Default matches image_tools (wanx-v1).
+DASHSCOPE_IMAGE_GEN_API_BASE = "https://dashscope.aliyuncs.com/api/v1"
+DASHSCOPE_IMAGE_GEN_MODELS: tuple[str, ...] = ("wanx-v1", "wan2.5-t2i-preview", "qwen-image-plus")
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +139,9 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1/models",
         models_needs_key=True,
         anthropic_base="https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
+        image_gen_default_model="wanx-v1",
+        image_gen_model_options=DASHSCOPE_IMAGE_GEN_MODELS,
+        image_gen_api_base=DASHSCOPE_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="minimax", display_name="MiniMax", plan=PlanKind.TOKEN_PLAN,
@@ -133,6 +153,8 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://api.minimaxi.com/v1/models",
         models_needs_key=True,
         anthropic_base="https://api.minimaxi.com/anthropic",
+        video_gen_default_model="MiniMax-H3-Max",
+        video_gen_model_options=MINIMAX_VIDEO_GEN_MODELS,
     ),
     VendorPreset(
         vendor_key="maas", display_name="Maas盘古", plan=PlanKind.TOKEN_PLAN,
@@ -192,6 +214,9 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1/models",
         models_needs_key=True,
         anthropic_base="https://coding.dashscope.aliyuncs.com/apps/anthropic",
+        image_gen_default_model="wanx-v1",
+        image_gen_model_options=DASHSCOPE_IMAGE_GEN_MODELS,
+        image_gen_api_base=DASHSCOPE_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="kimi", display_name="Kimi(月之暗面)", plan=PlanKind.CODING_PLAN,
@@ -258,6 +283,9 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://dashscope.aliyuncs.com/compatible-mode/v1/models",
         models_needs_key=True,
         anthropic_base="https://dashscope.aliyuncs.com/apps/anthropic",
+        image_gen_default_model="wanx-v1",
+        image_gen_model_options=DASHSCOPE_IMAGE_GEN_MODELS,
+        image_gen_api_base=DASHSCOPE_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="deepseek", display_name="DeepSeek", plan=PlanKind.CUSTOM_API,
@@ -335,6 +363,8 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://api.minimaxi.com/v1/models",
         models_needs_key=True,
         anthropic_base="https://api.minimaxi.com/anthropic",
+        video_gen_default_model="MiniMax-H3-Max",
+        video_gen_model_options=MINIMAX_VIDEO_GEN_MODELS,
     ),
     VendorPreset(
         vendor_key="maas", display_name="Maas盘古", plan=PlanKind.CUSTOM_API,
@@ -507,6 +537,11 @@ def to_frontend_payload() -> dict[str, Any]:
                 "supports_anthropic": bool(p.anthropic_base),
                 "anthropic_base": p.anthropic_base,
                 "anthropic_client_provider": ANTHROPIC_CLIENT_PROVIDER if p.anthropic_base else None,
+                "video_gen_default_model": p.video_gen_default_model,
+                "video_gen_model_options": list(p.video_gen_model_options or ()),
+                "image_gen_default_model": p.image_gen_default_model,
+                "image_gen_model_options": list(p.image_gen_model_options or ()),
+                "image_gen_api_base": p.image_gen_api_base,
             }
             for p in _BY_PLAN[plan]
         ]

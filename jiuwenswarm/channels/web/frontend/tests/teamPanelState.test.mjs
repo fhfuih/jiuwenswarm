@@ -36,6 +36,13 @@ test('normalizeTeamPanelState keeps valid values', () => {
   );
 });
 
+test('normalizeTeamPanelState keeps the workflow tab', () => {
+  assert.equal(
+    normalizeTeamPanelState({ expanded: true, activeTab: 'workflow' }).activeTab,
+    'workflow',
+  );
+});
+
 test('normalizeTeamPanelState falls back for invalid enum fields', () => {
   assert.deepEqual(
     normalizeTeamPanelState({

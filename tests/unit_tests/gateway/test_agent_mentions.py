@@ -1,5 +1,8 @@
 """Tests for @agent-mention parsing and @file exclusion."""
 
+import os
+import tempfile
+
 from jiuwenswarm.gateway.message_handler.message_handler import MessageHandler
 
 
@@ -21,18 +24,20 @@ class TestAtFileExcludesAgentPrefix:
         assert "@agent:plugin-name" in result
 
     @staticmethod
-    def test_agent_and_file_in_same_message(tmp_path):
+    def test_agent_and_file_in_same_message():
         """@agent-xxx and @file.py should coexist — only file resolved."""
-        source = tmp_path / "sample.py"
-        source.write_text("print('hello')", encoding="utf-8")
-
-        content = f"@agent-reviewer @{source.name} some text"
-        result = MessageHandler.resolve_at_file_references(
-            content,
-            cwd=str(tmp_path),
-        )
-        assert "@agent-reviewer" in result
-        assert "<file-content" in result
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False, dir="/tmp"
+        ) as f:
+            f.write("print('hello')")
+            fname = os.path.basename(f.name)
+        try:
+            content = f"@agent-reviewer @{fname} some text"
+            result = MessageHandler.resolve_at_file_references(content, cwd="/tmp")
+            assert "@agent-reviewer" in result
+            assert "<file-content" in result
+        finally:
+            os.unlink(f.name)
 
     @staticmethod
     def test_strip_attached_mentions_skips_agent_prefix():

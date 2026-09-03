@@ -8,7 +8,6 @@ import { ToolGroupDisplay } from './ToolGroupDisplay';
 import { useNow, formatDurationPrecise } from './chatTimelineClock';
 import { TeamMemberAvatar } from '../TeamMemberAvatar';
 import WaitingStatusIcon from '../../assets/work-mode/status-waiting.svg?react';
-import { AgentAvatar } from '../AgentAvatar';
 import { useChatStore, useSessionStore } from '../../stores';
 import type { ReasoningSegment } from '../../stores/chatStore';
 import {
@@ -64,19 +63,17 @@ function formatElapsedCoarse(ms: number): string {
 /** 与 buildTurnTimeline 中异常回退阈值一致：超过则视为 startMs 脏数据。 */
 const MAX_PLAUSIBLE_TURN_MS = 24 * 60 * 60 * 1000;
 
-export function TurnElapsed({
+function TurnElapsed({
   startMs,
   endMs,
   isLastTurn,
   showAvatar,
-  agentTemplateName,
   teamLayout,
 }: {
   startMs: number;
   endMs: number;
   isLastTurn: boolean;
   showAvatar?: boolean;
-  agentTemplateName?: string;
   teamLayout: boolean;
 }) {
   const { t } = useTranslation();
@@ -121,14 +118,8 @@ export function TurnElapsed({
   return (
     <div className={clsx('completed-work-col', teamLayout && 'completed-work-col--team')} data-testid="chat-panel-turn-elapsed-block">
       <div className="completed-work-col__avatar pt-0.5">
-        {!teamLayout && agentTemplateName ? (
-          <AgentAvatar agentId={agentTemplateName} alt="" className="h-7 w-7" showName />
-        ) : (
-          <>
-            <TeamMemberAvatar member="team_leader" className="h-7 w-7" />
-            <span className="chat-avatar-name">Jiuwen</span>
-          </>
-        )}
+        <TeamMemberAvatar member="team_leader" className="h-7 w-7" />
+        <span className="chat-avatar-name">Jiuwen</span>
       </div>
       {timeLine}
     </div>
@@ -145,7 +136,6 @@ function CompletedWorkChip({
   showAvatar,
   teamLayout,
   elapsedMs = 0,
-  agentTemplateName,
 }: {
   variant: 'turn' | 'streak';
   thinkingCount?: number;
@@ -156,7 +146,6 @@ function CompletedWorkChip({
   showAvatar: boolean;
   teamLayout: boolean;
   elapsedMs?: number;
-  agentTemplateName?: string;
 }) {
   const { t } = useTranslation();
   // 耗时并入 turn 折叠条文案（原底部 TurnElapsed 已移除），位置唯一不再打架。
@@ -241,14 +230,8 @@ function CompletedWorkChip({
     >
       {showAvatar ? (
         <div className="completed-work-col__avatar">
-          {agentTemplateName ? (
-            <AgentAvatar agentId={agentTemplateName} alt="" className="h-7 w-7" showName />
-          ) : (
-            <>
-              <TeamMemberAvatar member="team_leader" className="h-7 w-7" />
-              <span className="chat-avatar-name">Jiuwen</span>
-            </>
-          )}
+          <TeamMemberAvatar member="team_leader" className="h-7 w-7" />
+          <span className="chat-avatar-name">Jiuwen</span>
         </div>
       ) : null}
       {chip}
@@ -258,12 +241,10 @@ function CompletedWorkChip({
 
 function ReasoningSegmentBlock({
   segment,
-  agentTemplateName,
   showAvatar,
   teamLayout,
 }: {
   segment: ReasoningSegment;
-  agentTemplateName?: string;
   showAvatar: boolean;
   teamLayout: boolean;
 }) {
@@ -272,7 +253,6 @@ function ReasoningSegmentBlock({
   const userToggledRef = useRef(false);
   const prevClosedRef = useRef(segment.closed);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
 
   useEffect(() => {
     if (!prevClosedRef.current && segment.closed && !userToggledRef.current) {
@@ -295,7 +275,7 @@ function ReasoningSegmentBlock({
       return;
     }
     const el = bodyRef.current;
-    if (!el || !autoScrollRef.current) {
+    if (!el) {
       return;
     }
     el.scrollTop = el.scrollHeight;
@@ -341,18 +321,7 @@ function ReasoningSegmentBlock({
       </button>
       <div className={clsx('reasoning-panel__collapse', open && 'is-open')}>
         <div className="reasoning-panel__collapse-inner">
-          <div
-            ref={bodyRef}
-            className="reasoning-panel__body"
-            data-testid="chat-panel-reasoning-panel-body"
-            onScroll={() => {
-              const el = bodyRef.current;
-              if (!el) {
-                return;
-              }
-              autoScrollRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 32;
-            }}
-          >
+          <div ref={bodyRef} className="reasoning-panel__body" data-testid="chat-panel-reasoning-panel-body">
             {body}
           </div>
         </div>
@@ -386,14 +355,8 @@ function ReasoningSegmentBlock({
     >
       {showAvatar ? (
         <div className="reasoning-col__avatar">
-          {agentTemplateName ? (
-            <AgentAvatar agentId={agentTemplateName} alt="" className="h-7 w-7" showName />
-          ) : (
-            <>
-              <TeamMemberAvatar member="team_leader" />
-              <span className="chat-avatar-name">Jiuwen</span>
-            </>
-          )}
+          <TeamMemberAvatar member="team_leader" />
+          <span className="chat-avatar-name">Jiuwen</span>
         </div>
       ) : null}
       {content}
@@ -423,23 +386,6 @@ export function ChatTimelineList({
     () => buildRenderItems(buildTimelineItems(messages, executions, reasoningSegments), isTeamMode, isProcessing),
     [messages, executions, reasoningSegments, isTeamMode, isProcessing]
   );
-  const agentTemplateNameByTurn = useMemo(() => {
-    const names = new Map<number, string>();
-    for (const item of renderItems) {
-      const name =
-        item.type === 'reasoning'
-          ? item.segment.agentTemplateName?.trim()
-          : item.type === 'toolGroup'
-            ? item.agentTemplateName?.trim()
-          : item.type === 'message' && item.message.role === 'assistant'
-            ? item.message.agentTemplateName?.trim()
-            : undefined;
-      if (name) {
-        names.set(item.turnId, name);
-      }
-    }
-    return names;
-  }, [renderItems]);
   const settlingForStreak = isSettlingForStreak(renderItems, Date.now());
   const settleNow = useNow(settlingForStreak);
   const streakNowMs = settlingForStreak ? settleNow : Date.now();
@@ -574,7 +520,6 @@ export function ChatTimelineList({
                     elapsedMs={completedWorkDurationMs(meta)}
                     showAvatar
                     teamLayout={isTeamMode}
-                    agentTemplateName={item.message.agentTemplateName ?? agentTemplateNameByTurn.get(item.turnId)}
                   />
                 ) : null}
                 {/* 折叠态：交付物与代码变更卡需留在文档流内，不能放进被 absolute 隐藏的 collapse */}
@@ -656,7 +601,6 @@ export function ChatTimelineList({
                 elapsedMs={completedWorkDurationMs(meta)}
                 showAvatar
                 teamLayout={isTeamMode}
-                agentTemplateName={agentTemplateNameByTurn.get(item.turnId)}
               />
             );
           }
@@ -677,7 +621,6 @@ export function ChatTimelineList({
                 // 仅当这条 streak 本身吃到了本轮顶部头像时才画；后续 streak 一律不画
                 showAvatar={!turnFoldable && isTopStreakInTurn && streak.showAvatar}
                 teamLayout={isTeamMode}
-                agentTemplateName={agentTemplateNameByTurn.get(item.turnId)}
               />
             );
           }
@@ -713,7 +656,6 @@ export function ChatTimelineList({
             item.type === 'reasoning' ? (
               <ReasoningSegmentBlock
                 segment={item.segment}
-                agentTemplateName={item.segment.agentTemplateName ?? agentTemplateNameByTurn.get(item.turnId)}
                 showAvatar={hideAvatar ? false : item.showAvatar}
                 teamLayout={isTeamMode}
               />
@@ -723,7 +665,6 @@ export function ChatTimelineList({
                 notices={item.notices}
                 showAvatar={hideAvatar ? false : item.showAvatar}
                 teamLayout={isTeamMode}
-                agentTemplateName={agentTemplateNameByTurn.get(item.turnId)}
                 collapseSkillTreeWhenContentStarts={item.collapseSkillTreeWhenContentStarts}
                 viewedSkillIds={item.viewedSkillIds}
               />
@@ -768,7 +709,6 @@ export function ChatTimelineList({
               endMs={range.endMs}
               isLastTurn={item.isLastTurn}
               showAvatar={item.showAvatar}
-              agentTemplateName={agentTemplateNameByTurn.get(item.turnId)}
               teamLayout={isTeamMode}
             />
           );

@@ -6,6 +6,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from jiuwenswarm.tiered_policy_compat import apply_tiered_policy_parse_level_compat
+
+apply_tiered_policy_parse_level_compat()
+
 from openjiuwen.agent_teams.security.narrowing import format_base_permissions_for_desc
 from openjiuwen.core.single_agent.rail.base import AgentCallbackContext
 from openjiuwen.harness.prompts import PromptSection

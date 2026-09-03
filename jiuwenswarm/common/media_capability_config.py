@@ -31,6 +31,18 @@ MEDIA_CAPABILITY_ENV_FIELDS = {
         "VIDEO_MODEL_NAME",
         "VIDEO_PROVIDER",
     ),
+    "VIDEO_GEN_ENABLED": (
+        "VIDEO_GEN_API_BASE",
+        "VIDEO_GEN_API_KEY",
+        "VIDEO_GEN_MODEL_NAME",
+        "VIDEO_GEN_PROVIDER",
+    ),
+    "IMAGE_GEN_ENABLED": (
+        "IMAGE_GEN_API_BASE",
+        "IMAGE_GEN_API_KEY",
+        "IMAGE_GEN_MODEL_NAME",
+        "IMAGE_GEN_PROVIDER",
+    ),
 }
 
 

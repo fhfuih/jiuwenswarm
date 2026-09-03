@@ -18,8 +18,6 @@ import { InputArea, type InputAreaHandle } from './InputArea';
 import ChatOverviewIcon from '../../assets/chat-overview.svg?react';
 import PanelCollapseIcon from '../../assets/panel-collapse.svg?react';
 import lineUpIcon from '../../assets/lineUp.svg';
-import beeFlyingIcon from '../../assets/bee-flying.png';
-import beeStaticIcon from '../../assets/bee-static.png';
 import { NEW_CONVERSATION_ID } from '../../multi-session/state/newConversationLifecycle';
 import loadSendIcon from '../../assets/load-send.svg';
 import editIcon from '../../assets/edit.svg';
@@ -765,7 +763,7 @@ function BeeBanner({ className, altText, onTrigger }: { className: string; altTe
   return (
     <img
       className={className}
-      src={isPlaying ? beeFlyingIcon : beeStaticIcon}
+      src={isPlaying ? `${import.meta.env.BASE_URL}bee-flying.png` : `${import.meta.env.BASE_URL}bee-static.png`}
       alt={altText}
       data-testid="chat-panel-welcome-banner"
       onMouseEnter={handleMouseEnter}
@@ -773,12 +771,7 @@ function BeeBanner({ className, altText, onTrigger }: { className: string; altTe
   );
 }
 
-/**
- * The chat surface stays mounted while the user inspects trajectory data.
- * Keep this boundary memoized so changing only the active surface does not
- * rebuild a potentially very large message timeline and composer subtree.
- */
-export const ChatPanel = React.memo(function ChatPanel({
+export function ChatPanel({
   onSendMessage,
   onInputIntent,
   onPersistMedia,
@@ -1522,4 +1515,4 @@ export const ChatPanel = React.memo(function ChatPanel({
       </div>
     </div>
   );
-});
+}

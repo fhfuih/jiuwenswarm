@@ -42,7 +42,91 @@
     "more": "More",
     "settings": "Settings",
     "logs": "Logs",
-    "update": "Updates"
+    "update": "Updates",
+    "designer": "Design"
+  },
+  "designer": {
+    "title": "Designer",
+    "subtitle": "Creation execution canvas",
+    "promptPlaceholder": "Describe the film, character, or storyboard…",
+    "loadFixture": "Load sample graph",
+    "generate": "Generate graph",
+    "generating": "Generating…",
+    "clearCanvas": "Clear canvas",
+    "recentGraphs": "Recent graphs",
+    "hasVideo": "Has clip",
+    "emptyTitle": "No execution graph yet",
+    "emptyHint": "Describe the work and generate a graph. Running the graph calls MiniMax for the clip (dev pin: 5s / 480P).",
+    "layoutSaved": "Layout saved",
+    "run": "Run",
+    "pause": "Pause",
+    "cancel": "Cancel",
+    "runStarted": "Run started",
+    "runPaused": "Run paused",
+    "runCancelled": "Run cancelled",
+    "runCompleted": "Run completed",
+    "runFailed": "Run failed",
+    "errors": {
+      "promptRequired": "Enter a description first",
+      "generateFailed": "Failed to generate the execution graph",
+      "saveFailed": "Failed to save layout",
+      "runFailed": "Failed to start the run",
+      "rerunFailed": "Failed to regenerate this node",
+      "chooseFailed": "Failed to choose a version"
+    },
+    "runStatuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "nodeTypes": {
+      "text": "Text",
+      "table": "Table",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    },
+    "toolbar": {
+      "inspect": "Inspect",
+      "rerun": "Regenerate",
+      "rerunHint": "Rerun only this node with current upstream outputs"
+    },
+    "revision": {
+      "title": "Choose which version to keep",
+      "hint": "{{label}} was regenerated. The original is still here — pick which one to keep.",
+      "original": "Original",
+      "incoming": "New version",
+      "keepOriginal": "Keep original",
+      "keepIncoming": "Use new version",
+      "pending": "Needs choice",
+      "compare": "Compare versions"
+    },
+    "materials": {
+      "title": "Outputs",
+      "hint": "Brief and storyboard can be edited by hand. Rerun downstream nodes to use the new text.",
+      "ready": "Ready",
+      "editable": "Editable",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancelEdit": "Cancel",
+      "saveFailed": "Save failed",
+      "placeholder": "Placeholder",
+      "empty": "No outputs yet",
+      "placeholderHint": "This node is still a placeholder and has no real file.",
+      "openFile": "Open file",
+      "textError": "Unable to read text",
+      "frameCount": "{{count}} keyframes",
+      "viewLarge": "View large",
+      "closeViewer": "Close",
+      "previous": "Previous",
+      "next": "Next",
+      "viewerIndex": "{{current}} / {{total}}"
+    }
   },
   "settingsPanel": {
     "title": "Settings",
@@ -125,10 +209,11 @@
       "searchModel": "Search and select a model",
       "noModelResults": "No matching models",
       "openModelList": "Open model list",
-      "modelIdPlaceholder": "Enter a model ID, e.g. glm-4.7",
-      "modelIdHint": "For example: glm-4.7. Model IDs vary by provider; refer to its model list or official documentation.",
+      "modelIdPlaceholder": "Enter a model ID",
       "fetchLatestModels": "Fetch latest",
       "presetModels": "Showing provider presets. Open the list to fetch the latest models",
+      "videoGenPresetModels": "Showing this provider's video-generation presets; the chat model list is not used",
+      "imageGenPresetModels": "Showing this provider's image-generation presets; the chat model list is not used",
       "noPresetModels": "No preset models. Open the list or refresh to fetch the latest models",
       "noPresetModelsApiKeyRequired": "No preset models. Enter an API key before fetching the latest models",
       "noPresetModelsNoEndpoint": "This provider has no preset models or model-list endpoint",
@@ -178,7 +263,9 @@
       "modelsResponseInvalid": "The model-list response is invalid. Please try again.",
       "catalogResponseInvalid": "The model-provider catalog response is invalid. Please try again.",
       "catalogLoading": "Loading model providers and reasoning options. Please wait.",
+      "catalogLoadingCustomAvailable": "Loading model providers. You can choose Custom in the meantime.",
       "catalogLoadFailed": "Model providers and reasoning options failed to load. Retry before saving.",
+      "catalogLoadFailedCustomAvailable": "Failed to load model providers. You can still choose Custom.",
       "saveResponseInvalid": "The model-save response is invalid. Reload to verify the server state.",
       "savedApplied": "Saved and applied",
       "savedRestartRequired": "Saved; takes effect after restart",
@@ -210,13 +297,24 @@
       "webSearch": "Web search",
       "mediaTools": "Tools",
       "vision": "Image processing",
+      "visionDescription": "Answer questions, run OCR, and describe images.",
+      "visionConfigTitle": "Configure image processing model",
       "audio": "Audio processing",
+      "audioDescription": "Speech recognition and audio analysis.",
+      "audioConfigTitle": "Configure audio processing model",
       "video": "Video understanding",
-      "videoDescription": "Enable video understanding; disabling it keeps the saved model configuration.",
+      "videoDescription": "Analyze existing videos and answer questions about them.",
       "videoConfigTitle": "Configure video understanding model",
-      "toggleCapability": "Toggle {{name}} capability",
+      "image_gen": "Image generation",
+      "image_genDescription": "Generate images from text or reference stills. Character sheets, scenes, and keyframes use this. Prefer Alibaba DashScope (wanx-v1 / qwen-image); do not reuse a MiniMax video key.",
+      "image_genConfigTitle": "Configure image generation model",
+      "video_gen": "Video generation",
+      "video_genDescription": "Generate short videos from text. Defaults to DashScope (for example wan2.6-t2v).",
+      "video_genConfigTitle": "Configure video generation model",
       "saveAndEnable": "Save and enable",
-      "savedRestartRequired": "Saved; takes effect after restart."
+      "toggleCapability": "Toggle {{name}}",
+      "savedRestartRequired": "Saved; takes effect after restart",
+      "team": "Agent team"
     },
     "browser": {
       "runtime": "Browser runtime",
@@ -236,7 +334,6 @@
       "externalCliAgents": "Third-Party Agents",
       "externalCliAgentsDescription": "For Team mode only.",
       "a2ui": "A2UI generation",
-      "trajectoryUi": "Trajectory UI",
       "proactive": "Proactive recommendations",
       "proactiveLimits": "Recommendation limits",
       "proactiveLimitsDescription": "Up to {{daily}} per day and {{rounds}} conversation rounds per check.",
@@ -303,12 +400,23 @@
       "video_api_key": { "title": "API key" },
       "video_model": { "title": "Model name" },
       "video_provider": { "title": "Model provider" },
+      "video_gen_api_base": { "title": "API URL" },
+      "video_gen_api_key": { "title": "API key" },
+      "video_gen_model": { "title": "Model name" },
+      "video_gen_provider": { "title": "Model provider" },
+      "image_gen_api_base": { "title": "API URL" },
+      "image_gen_api_key": { "title": "API key" },
+      "image_gen_model": { "title": "Model name" },
+      "image_gen_provider": { "title": "Model provider" },
+      "swarmflow_enabled": {
+        "title": "Dynamic workflow",
+        "description": "When enabled, cluster mode shows a Workflow tab with SwarmFlow phases and parallel agents. Click a node for details, or reply when a node is waiting for a human."
+      },
       "permissions_mode": {
         "title": "Global permission mode",
         "description": "Choose the shared guardrail mode for ordinary Agents and Teams."
       },
       "a2ui_enabled": { "title": "Enable A2UI", "description": "Render supported results as interactive interfaces." },
-      "trajectory_ui_enabled": { "title": "Enable trajectory UI", "description": "Show Chat and Trajectory switching in Agent and Team modes and enable the trajectory observability data path." },
       "external_cli_agent_claude_enabled": {
         "title": "Enable Claude",
         "description": "Allow a Team Leader to spawn a Claude Agent."
@@ -345,24 +453,6 @@
     "validation": {
       "required": "This field is required",
       "integerRange": "Enter an integer from {{min}} to {{max}}"
-
-    }
-  },
-  "trajectory": {
-    "loading": "Loading trajectory UI…",
-    "tabs": {
-      "aria": "Agent and Team content view",
-      "trajectory": "Trajectory"
-    },
-    "team": {
-      "memberLanes": "Member trajectory lanes",
-      "members": "Members"
-    },
-    "layout": {
-      "hideSessions": "Collapse sessions",
-      "showSessions": "Show sessions",
-      "hideTasks": "Collapse tasks",
-      "showTasks": "Show tasks"
     }
   },
   "team": {
@@ -384,11 +474,70 @@
     "maximize": "Maximize",
     "restore": "Exit Full Screen",
     "toolTabs": "Tool panel tabs",
+    "workflowTab": "Workflow",
+    "workflow": {
+      "empty": "No SwarmFlow graph yet",
+      "emptyHint": "Open a cluster session that already ran SwarmFlow, or start a new one and let the Leader call swarmflow(). Phases and parallel agents appear here.",
+      "emptyHintControl": "Drag nodes to rearrange. Click an edge to edit dispatch (sequence / parallel / review). Changes apply on the next run.",
+      "legendTitle": "Dispatch alignment",
+      "dispatchKind": "Dispatch",
+      "dispatchMap": "Scheduled as",
+      "contains": "Contains",
+      "dispatch": {
+        "contains": "Contains",
+        "sequence": "Sequence",
+        "parallel": "Parallel",
+        "review": "Review"
+      },
+      "dispatchMapValue": {
+        "contains": "contains",
+        "sequence": "depends_on",
+        "parallel": "same-wave unlock",
+        "review": "reviewer + rounds"
+      },
+      "enabled": "Enabled",
+      "reviewerType": "Reviewer",
+      "reviewer": {
+        "verifier": "verifier",
+        "inspector": "inspector",
+        "challenger": "challenger"
+      },
+      "maxReviewRounds": "Rework rounds",
+      "reverseReview": "Reverse review direction",
+      "reviewEarlier": "Review earlier",
+      "reviewLater": "Review later",
+      "makeSequence": "Make sequential",
+      "makeParallel": "Make parallel",
+      "save": {
+        "saving": "Saving overlay…",
+        "saved": "Saved. Applies on the next run",
+        "error": "Failed to save overlay"
+      },
+      "runCount": "{{count}} runs",
+      "selectNode": "Click or drag a node for details",
+      "dragHint": "Drag a node to move it; edges follow",
+      "resetLayout": "Reset auto layout",
+      "kind": "Type",
+      "phase": "Phase",
+      "reply": "Reply",
+      "replyPlaceholder": "Type a reply for the human node",
+      "replySend": "Send reply",
+      "replySending": "Sending…",
+      "replyError": "Failed to send reply",
+      "status": {
+        "planned": "Planned",
+        "pending": "Pending",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed",
+        "stopped": "Stopped",
+        "waiting_for_human": "Waiting for human"
+      }
+    },
     "taskOverview": "Task Overview",
     "elapsedTime": "Elapsed time: {{value}}",
     "duration": "Duration",
     "noTasks": "No tasks currently",
-    "moreTasks": "{{count}} more tasks",
     "noMemberData": "No member data",
     "selectMember": "Select a team member",
     "detailTabs": {
@@ -496,9 +645,7 @@
       "views": {
         "list": "List view",
         "structure": "Structure view",
-        "board": "Board view",
-        "graph": "Graph view",
-        "workflow": "Workflow view"
+        "board": "Board view"
       },
       "metrics": {
         "progress": "Progress"
@@ -646,7 +793,6 @@
       "configured": "Configured Models",
       "free": "Free Models",
       "addModel": "Add Custom Model",
-      "empty": "No models available. Add a model in Settings first.",
       "placeholder": "Select Model"
     },
     "contextUsage": {
@@ -691,7 +837,6 @@
     "extensionConnect": "Connect",
     "extensionManagePlugins": "Manage My Plugins",
     "extensionManageMcps": "Manage My MCPs",
-    "extensionMore": "More",
     "recentTasks": "Progress",
     "contextCompressionCommandRunning": "Compressing context",
     "teamPause": "Pause",
@@ -1076,11 +1221,11 @@
       },
       "1": {
         "title": "Configure your first model",
-        "description": "Model configuration is on the Models page in Settings."
+        "description": "Model settings are under More, in Configuration."
       },
       "2": {
         "title": "Complete model configuration",
-        "description": "Select Add model, choose a model provider, complete the required fields, then select Save."
+        "description": "Enter the model name, API URL, API key, and model provider in Default model, then select Save."
       }
     },
     "quickSetup": {
@@ -1385,6 +1530,10 @@
       "wakeOffset": "Wake early",
       "wakeOffsetUnit": "minutes",
       "wakeOffsetHelp": "Start the agent this many minutes before the scheduled push time; 0 means run at the scheduled time"
+    },
+    "modelPicker": {
+      "configured": "Configured",
+      "empty": "No models available yet, add one in the config panel first"
     },
     "timePicker": {
       "hour": "Hr",
@@ -1881,7 +2030,6 @@
         "readFailed": "Unable to read the skill graph. Refresh the graph first.",
         "refreshFailed": "Failed to refresh the skill graph",
         "cancelFailed": "Failed to cancel the skill graph build",
-        "primaryModelProbeFailed": "Primary model connection test failed: {{detail}}",
         "buildFailedWithDetail": "Symphony graph build failed: {{detail}}"
       },
       "serverDetails": {
@@ -1895,8 +2043,6 @@
       "buildStages": {
         "idle": "No build logs",
         "updateStart": "Starting skill graph build",
-        "modelProbeStart": "Testing primary model connection",
-        "modelProbeDone": "Primary model connection test passed",
         "updateCancelRequested": "Cancelling skill graph build",
         "updateCancelled": "Skill graph build cancelled",
         "scanStart": "Scanning skill directories",
@@ -2181,8 +2327,6 @@
       "connecting": "Connecting…",
       "uninstall": "Uninstall",
       "uninstalling": "Uninstalling…",
-      "delete": "Delete",
-      "deleting": "Deleting…",
       "create": "Create",
       "createFirst": "Create manually",
       "createByChat": "Create via chat",
@@ -2404,8 +2548,6 @@
       "toolName": "Tool name",
       "arguments": "Arguments",
       "result": "Result",
-      "flowchart": "Flowchart",
-      "flowchartHint": "click to expand/collapse",
       "truncated": "result truncated"
     },
     "toolGroup": {
@@ -2727,6 +2869,8 @@
       "noProjectMatches": "No matching projects",
       "noProjects": "No projects",
       "noConversations": "No conversations",
+      "designerGraph": "Design graph",
+      "designerHasVideo": "Has clip",
       "noSessions": "No execution sessions",
       "startConversation": "Start a new conversation from {{projectName}}",
       "pinProject": "Pin project",
@@ -2843,7 +2987,6 @@
     "prev": "Previous",
     "next": "Next",
     "cancel": "Cancel",
-    "replyLater": "Reply Later",
     "skip": "Skip",
     "nextStep": "Next",
     "confirm": "Confirm",
@@ -2903,8 +3046,7 @@
       "addMcp": "Add MCP",
       "pickSkillTitle": "Select skills",
       "pickMcpTitle": "Select MCP",
-      "submitError": "Creation failed. Please check your input and try again.",
-      "fieldRequired": "This field is required",
+      "submitError": "Creation failed - this still awaits backend support",
       "withSkillNotWired": "This entry point isn't wired to the chat panel yet"
     },
     "chatPrompts": {
@@ -3179,42 +3321,5 @@
       "skipped": "Last run skipped",
       "cancelled": "Last run cancelled"
     }
-  },
-  "swarmflow": {
-    "statusPlanned": "Planned",
-    "statusPending": "Pending",
-    "statusRunning": "Running",
-    "statusPaused": "Paused",
-    "statusCompleted": "Completed",
-    "statusFailed": "Failed",
-    "statusStopped": "Stopped",
-    "statusWaitingForHuman": "Waiting for input",
-    "subWorkflow": "Sub-workflow",
-    "clickToReply": "Click to reply",
-    "waitingForHuman": "Waiting for {{count}}",
-    "noWorkflow": "No workflow",
-    "layoutIndented": "Indented Tree",
-    "layoutOrgChart": "Org Chart",
-    "layoutGraph": "Flow Graph",
-    "pauseResumeHint": "Pause / Resume",
-    "stopHint": "Stop",
-    "sessionBudget": "Session budget (team-wide, never resets)",
-    "runBudget": "Run budget (META.workflow_token_limit)",
-    "sessionBudgetShort": "Session",
-    "runBudgetShort": "Run",
-    "budgetUnlimited": "unbounded",
-    "budgetExhaustedSession": "Session budget exhausted",
-    "budgetExhaustedWorkflow": "Run budget exhausted",
-    "toggleLabel": "SwarmFlow",
-    "tagHint": "SwarmFlow is active for this session",
-    "closeTag": "Close SwarmFlow",
-    "closeTagDisabled": "Cannot close while processing",
-    "configTitle": "SwarmFlow Configuration",
-    "configReadonlyHint": "Session is active, config is read-only",
-    "budgetPanelTitle": "SwarmFlow Budget",
-    "budgetPanelHint": "Set the Token limit for this session.",
-    "budgetPlaceholder": "Enter number",
-    "budgetActualHint": "Configured limit: {{count}} tokens",
-    "workflowList": "Workflow List"
   }
 }

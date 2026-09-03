@@ -2,11 +2,10 @@
 
 """Warm the process-wide image-modality probe cache.
 
-``DeepAgent._ensure_initialized`` warms native image support when
-``enable_read_image_multimodal`` is left on auto. Native-image call sites read
-the cache dynamically; when no verdict exists yet,
+``DeepAgent._ensure_initialized`` resolves ``enable_read_image_multimodal``
+when it is left on auto: a cached verdict is applied straight away, otherwise
 ``schedule_image_support_probe`` fires a background probe (one LLM round-trip
-carrying a tiny PNG) and image input stays disabled until a verdict is cached.
+carrying a tiny PNG) and the current run degrades to metadata-only.
 
 Two properties of that mechanism make the verdict unreliable in the agent
 server unless it is warmed up here:

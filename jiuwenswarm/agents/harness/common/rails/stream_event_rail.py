@@ -28,7 +28,6 @@ from openjiuwen.core.single_agent.rail.base import (
     ToolCallInputs,
 )
 from openjiuwen.harness.rails.base import DeepAgentRail
-from openjiuwen.harness.rails._multimodal import should_enable_read_image_multimodal
 from openjiuwen.harness.tools import TodoListTool
 from openjiuwen.harness.workspace.workspace import WorkspaceNode
 
@@ -268,9 +267,11 @@ class JiuSwarmStreamEventRail(DeepAgentRail):
         ) or "cn"
 
     def _read_image_multimodal_enabled(self) -> bool:
-        if self._deep_agent is None:
-            return False
-        return should_enable_read_image_multimodal(self._deep_agent)
+        deep_config = (
+            getattr(self._deep_agent, "deep_config", None)
+            or getattr(self._deep_agent, "_deep_config", None)
+        )
+        return bool(getattr(deep_config, "enable_read_image_multimodal", False))
 
     def _tool_interrupted_message(self, tool_name: str) -> str:
         """Build a language-aware tool interruption message."""
@@ -725,6 +726,11 @@ class JiuSwarmStreamEventRail(DeepAgentRail):
             self._inflight_tool_calls.pop(tc_id, None)
 
         await self._emit_tool_result(session, tc, ctx.inputs.tool_result)
+        self._symphony_stream_handler.request_force_finish(
+            ctx,
+            tc,
+            ctx.inputs.tool_result,
+        )
         await self._emit_ask_user_question_if_interrupted(
             session,
             tc,

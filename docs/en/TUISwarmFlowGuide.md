@@ -186,7 +186,7 @@ The shipped template defaults SwarmFlow to **off** (`enable_swarmflow: false`). 
 | Path | Fields | How | When it takes effect |
 |------|--------|-----|----------------------|
 | **1. Edit `config.yaml`** | `enable_swarmflow`, `swarmflow_budget` | Edit `modes.team.jiuwen_team` in `~/.jiuwenswarm/config/config.yaml` | **Restart the backend** for global effect |
-| **2. Web UI** | `enable_swarmflow` only | Go to **More → Configuration Info → Other Config → SwarmFlow** and toggle on "Enable SwarmFlow" (**cluster mode**; the Web UI does **not** expose `swarmflow_budget` — set the budget via `config.yaml` or TUI `/swarmflow on --budget`) | **No hot reload**: after saving, **start a new session** (new chat or equivalent); active workflows are not interrupted |
+| **2. Web UI** | `enable_swarmflow` only | Go to **More → Configuration Info → Other Config → SwarmFlow** and toggle on "Enable SwarmFlow" (**cluster mode**; the Web UI does **not** expose `swarmflow_budget` — set the budget via `config.yaml` or TUI `/swarmflow on --budget`). After enabling, **open a new session** and send a task; the tool panel **Workflow** tab shows phases / parallel agents | **No hot reload**: after saving, **start a new session** (new chat or equivalent); active workflows are not interrupted |
 | **3. TUI `/swarmflow`** | `enable_swarmflow`; budget via `on --budget` | `/swarmflow on` / `off`; `/swarmflow on --budget <tokens\|none>`; `/swarmflow` to query | Writes config, then **`Use /new to apply.`** — current session is not hot-reloaded; run **`/new`** for a fresh session |
 
 > **Tip**: Use **`/swarmflow on`** day to day in the TUI; use `config.yaml` + restart for fixed deployment policy; after enabling SwarmFlow in the Web cluster mode, **open a new session**.

@@ -158,6 +158,61 @@ uv run jiuwenswarm-stop
 - 已有 debug 服务在运行时会拒绝重复启动，先执行 `uv run jiuwenswarm-stop`
 - 日志文件不会自动清理，需要时手动删除 `logs/swarm-*.log`
 
+### Windows 源码调试注意
+
+- **始终用 `uv run`**。系统 `python` 可能仍是旧版本（例如 3.6），不要直接跑 `python` / `pytest`。
+- 新开的 PowerShell 若提示找不到 `uv`，先刷新 PATH：
+
+```powershell
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+```
+
+- 调试启动器会解析端口横幅里的 Unicode 字符。若终端是 GBK，设置：
+
+```powershell
+$env:PYTHONUTF8 = "1"
+```
+
+- Windows 默认可能关闭长路径（`LongPathsEnabled=0`）。`uv sync` 拉 `agent-core` 等依赖时容易触发 `MAX_PATH`。**不要改全局 git config**，用当前会话环境变量即可：
+
+```powershell
+$env:UV_CACHE_DIR = "D:\u"
+$env:GIT_CONFIG_COUNT = "1"
+$env:GIT_CONFIG_KEY_0 = "core.longpaths"
+$env:GIT_CONFIG_VALUE_0 = "true"
+uv sync
+```
+
+- 若本机已安装桌面版 JiuwenSwarm，它通常占用 **5173 / 19000 / 18092**。源码 `debug` 会改绑其他端口（常见 Web UI 为 **http://localhost:6173**）。请打开启动器打印的 URL，不要用桌面 WebView2 那个空白窗口。
+
+### 工作流可视化（SwarmFlow）
+
+集群（Team）模式下开启 SwarmFlow 后，Web 右侧工具面板会出现 **工作流** 页签：阶段从上到下排列，同一阶段内的 Agent 并排表示并行。TUI 对应入口是 `/swarmflows`。
+
+不要把三套图混为一谈：
+
+| 图层 | 入口 | 运行时 | 并行 |
+|------|------|--------|------|
+| Skill 画布（`SkillGraphPanel`） | `SymphonyService.plan()` / `symphony_compose_graph` | `orchestration.plan` | 规划出的技能链，由 Agent 再调用技能；**不是 Pregel** |
+| 组件 DAG | `openjiuwen.core.workflow.Workflow.compile` / `invoke` / `stream` | `PregelLoop` + `TaskExecutorPool` | 同一 superstep 内就绪节点 `wait_all()` |
+| SwarmFlow | Team `run_swarmflow()` / `Runtime.run_workflow` | `EngineProvider` + `TeamWorkerBackend` | `parallel()` fork-join；`pipeline()` 无屏障 |
+
+Web 实现要点：
+
+1. 后端 `_consume_workflow_events` 向 Web **广播原生** `workflow.updated`，同时仍转换成 `team.member` / `team.task`，任务板继续可用。快照会写入会话 `metadata.workflow_runs`。
+2. 前端订阅 `workflow.updated`，规范化后写入 `sessionStore.workflowRuns`，由 `WorkflowGraphPanel` 布局绘制。
+3. 刷新或打开历史会话时，前端从 `session.get_metadata` 的 `workflow_runs` 恢复图，并用 `command.workflows`（list + get）补全详情。
+4. 运行快照与编排解耦：`workflow_runs` 只记执行痕迹；用户改的顺序 / 并行 / 验收写在 `workflow_control`（SwarmFlow 的 phase/agent 边，语义对齐调度指派的 `depends_on` / 同时解锁 / `reviewer`+`max_review_rounds`）。点选连线即可改，**下次运行**生效。
+5. 启用方式：设置里打开 SwarmFlow（`swarmflow.enabled` / `modes.team.jiuwen_team.enable_swarmflow`），**新建会话** 后切到集群模式再发任务。详见 [TUI 使用 SwarmFlow 指南](TUI使用SwarmFlow指南.md)。
+
+本地验证：
+
+```powershell
+uv run pytest tests/unit_tests/agentserver/test_team_helpers.py -k consume_workflow_events
+cd jiuwenswarm/channels/web/frontend
+npm run test:workflow-graph
+```
+
 #### 后端代码修改
 
 修改后端 Python 代码后，执行以下命令重新初始化并启动服务：

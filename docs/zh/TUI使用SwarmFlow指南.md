@@ -184,7 +184,7 @@ modes:
 | 途径 | 适用项 | 做法 | 生效方式 |
 |------|--------|------|----------|
 | **1. 编辑 `config.yaml`** | `enable_swarmflow`、`swarmflow_budget` | 修改 `~/.jiuwenswarm/config/config.yaml` 中 `modes.team.jiuwen_team` 对应字段 | **重启后端服务**后全局生效 |
-| **2. Web 前端** | 仅 `enable_swarmflow` | 进入 **更多 → 配置信息 → 其他配置 → SwarmFlow**，勾选「启用 SwarmFlow」开关（**集群模式**；前端**不暴露** `swarmflow_budget`，预算须改 `config.yaml` 或用 TUI `/swarmflow on --budget`） | **不支持热更新**：保存后需**新建会话**（新开聊天或等价操作）才生效；正在跑的 workflow 不会被中断 |
+| **2. Web 前端** | 仅 `enable_swarmflow` | 进入 **更多 → 配置信息 → 其他配置 → SwarmFlow**，勾选「启用 SwarmFlow」开关（**集群模式**；前端**不暴露** `swarmflow_budget`，预算须改 `config.yaml` 或用 TUI `/swarmflow on --budget`）。开启后 **新建会话**，发任务即可在工具面板 **工作流** 页签查看阶段 / 并行 Agent | **不支持热更新**：保存后需**新建会话**（新开聊天或等价操作）才生效；正在跑的 workflow 不会被中断 |
 | **3. TUI `/swarmflow`** | `enable_swarmflow`；`swarmflow_budget` 可用 `on --budget` | `/swarmflow on` / `off` 开关；`/swarmflow on --budget <tokens\|none>` 改预算；`/swarmflow` 查询状态 | 写入配置后提示 **`Use /new to apply.`** — 当前 session 不热更新，执行 **`/new`** 新建 session 后生效 |
 
 > **选用建议**：日常在 TUI 里用 **`/swarmflow on`** 最省事；长期固定策略可改 `config.yaml` 并重启；在 Web 集群模式下开启 SwarmFlow 后记得**新开会话**。

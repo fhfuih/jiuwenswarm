@@ -1879,11 +1879,9 @@ class JiuwenSwarmCodeAdapter(JiuWenSwarmDeepAdapter):
                 )
             )
 
-        # ── explore_agent（Code 模式核心子代理，默认启用，可显式关闭）──
-        explore_agent_cfg = subagents_cfg.get("explore_agent") if isinstance(subagents_cfg, dict) else None
-        if self._is_subagent_default_enabled(explore_agent_cfg) and not self._subagent_list_has_name(
-            subagents, "explore_agent"
-        ):
+        # ── 固定挂载：explore_agent（Code 模式核心子代理，始终启用）──
+        if not self._subagent_list_has_name(subagents, "explore_agent"):
+            explore_agent_cfg = subagents_cfg.get("explore_agent") if isinstance(subagents_cfg, dict) else None
             explore_spec = build_explore_agent_config(
                 model=model,
                 workspace=workspace,
@@ -1897,11 +1895,9 @@ class JiuwenSwarmCodeAdapter(JiuWenSwarmDeepAdapter):
             explore_spec.factory_kwargs = {"auto_create_workspace": False}
             subagents.append(explore_spec)
 
-        # ── plan_agent（Code 模式核心子代理，默认启用，可显式关闭）──
-        plan_agent_cfg = subagents_cfg.get("plan_agent") if isinstance(subagents_cfg, dict) else None
-        if self._is_subagent_default_enabled(plan_agent_cfg) and not self._subagent_list_has_name(
-            subagents, "plan_agent"
-        ):
+        # ── 固定挂载：plan_agent（Code 模式核心子代理，始终启用）──
+        if not self._subagent_list_has_name(subagents, "plan_agent"):
+            plan_agent_cfg = subagents_cfg.get("plan_agent") if isinstance(subagents_cfg, dict) else None
             plan_spec = build_plan_agent_config(
                 model=model,
                 workspace=workspace,
@@ -2106,8 +2102,6 @@ class JiuwenSwarmCodeAdapter(JiuWenSwarmDeepAdapter):
                 project_dir=runtime_config.project_dir or self._project_dir,
             )
             self._runtime_prompt_rail.set_session_id(runtime_config.session_id)
-            # BrowserTaskPromptRail 已改为 load-aware（按 deep_config.subagents 里是否挂载
-            # browser_agent 决定是否追加浏览器策略），不再需要按请求注入 channel。
         eternal_conversation_rail = getattr(self, "_eternal_conversation_rail", None)
         if eternal_conversation_rail is not None:
             self._eternal_conversation_enabled = runtime_config.eternal_conversation_enabled

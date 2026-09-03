@@ -216,23 +216,25 @@ def test_inverse_raises_for_chunk_shape_on_unary_parser() -> None:
 
 def test_snapshot_keep_keys_include_budget() -> None:
     from jiuwenswarm.server.wire_truncate import (
+        _WORKFLOW_SNAPSHOT_KEEP_KEYS,
         _WORKFLOW_LIST_SUMMARY_KEEP_KEYS,
     )
 
+    assert "budget" in _WORKFLOW_SNAPSHOT_KEEP_KEYS
     assert "budget" in _WORKFLOW_LIST_SUMMARY_KEEP_KEYS
 
 
 def test_collapse_agent_keeps_token_count() -> None:
-    from jiuwenswarm.server.wire_truncate import _split_oversized_agent_fields
+    from jiuwenswarm.server.wire_truncate import _workflow_agent_for_collapse
 
     agent = {"id": "k1", "name": "analyst", "status": "completed", "kind": "agent",
              "token_count": 12700, "outcome": "ok"}
-    out = _split_oversized_agent_fields(agent)
+    out = _workflow_agent_for_collapse(agent)
     assert out.get("token_count") == 12700
 
 
 def test_collapse_phase_keeps_child_meta() -> None:
-    from jiuwenswarm.server.wire_truncate import _build_workflow_detail_paginated
+    from jiuwenswarm.server.wire_truncate import _collapse_oversized_workflow_snapshot_item
 
     item = {
         "id": "wf_1", "name": "onboarding", "status": "running",
@@ -246,11 +248,10 @@ def test_collapse_phase_keeps_child_meta() -> None:
             "parent_phase": "review", "agents": [],
         }],
     }
-    out = _build_workflow_detail_paginated(item, session_id="s1")
-    wf = out["workflow"]
-    assert wf["budget"]["exhausted"] is True
-    assert wf.get("token_count") == 12700
-    ph = wf["phases"][0]
+    out = _collapse_oversized_workflow_snapshot_item(item)
+    assert out["budget"]["exhausted"] is True
+    assert out["token_count"] == 12700
+    ph = out["phases"][0]
     assert ph.get("phase_type") == "child"
     assert ph.get("nested_phase") == "▸ intro #0"
     assert ph.get("parent_phase") == "review"

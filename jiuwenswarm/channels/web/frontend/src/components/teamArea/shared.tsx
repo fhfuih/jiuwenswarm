@@ -93,7 +93,7 @@ export type TeamAreaProps = BaseTeamAreaProps &
     }
   );
 
-export type TabType = 'planning' | 'team' | 'artifacts' | 'review';
+export type TabType = 'planning' | 'team' | 'workflow' | 'artifacts' | 'review';
 export type TeamDetailTab = 'members' | 'group';
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'error';
 export type TaskColumnKey = 'waiting' | 'running' | 'completed' | 'cancelled';

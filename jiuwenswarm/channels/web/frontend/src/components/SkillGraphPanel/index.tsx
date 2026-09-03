@@ -55,8 +55,6 @@ type BuildProgress = {
   total?: number;
   ts?: string;
   llm_token_usage?: LLMTokenUsageSummary;
-  detail?: string;
-  error?: string;
 };
 
 type SkillGraphPayload = {
@@ -66,7 +64,6 @@ type SkillGraphPayload = {
   build_log?: BuildLogEntry[];
   build_progress?: BuildProgress;
   llm_token_usage?: LLMTokenUsageSummary;
-  build_error?: string;
   manifest?: RawRecord;
   graph_manifest?: RawRecord;
   orchestration_min_edge_confidence?: number;
@@ -93,7 +90,6 @@ type SkillGraphUpdate = {
   build_log?: BuildLogEntry[];
   build_progress?: BuildProgress;
   llm_token_usage?: LLMTokenUsageSummary;
-  build_error?: string;
 };
 
 type SkillGraphStatus = {
@@ -103,14 +99,6 @@ type SkillGraphStatus = {
   build_log?: BuildLogEntry[];
   build_progress?: BuildProgress;
   llm_token_usage?: LLMTokenUsageSummary;
-  build_error?: string;
-};
-
-type TerminalBuildPayload = {
-  detail?: string;
-  build_error?: string;
-  cancelled?: boolean;
-  build_progress?: BuildProgress;
 };
 
 export type SkillGraphPanelHandle = {
@@ -205,8 +193,6 @@ function ArrangeGraphIcon() {
 const BUILD_STAGE_TRANSLATION_KEYS: Record<string, string> = {
   idle: 'idle',
   'update.start': 'updateStart',
-  'model.probe.start': 'modelProbeStart',
-  'model.probe.done': 'modelProbeDone',
   'update.cancel_requested': 'updateCancelRequested',
   'update.cancelled': 'updateCancelled',
   'scan.start': 'scanStart',
@@ -251,7 +237,6 @@ const SERVER_DETAIL_TRANSLATION_KEYS: Record<string, string> = {
 };
 
 const SERVER_DETAIL_PREFIX_TRANSLATION_KEYS: Array<{ prefix: string; key: string }> = [
-  { prefix: '主模型连接测试未通过：', key: 'skills.graph.errors.primaryModelProbeFailed' },
   { prefix: 'Symphony 总谱构建失败:', key: 'skills.graph.errors.buildFailedWithDetail' },
 ];
 
@@ -457,19 +442,6 @@ function isTerminalBuildStatus(status: BuildProgress['status'] | undefined): boo
   return status === 'success' || status === 'error' || status === 'cancelled';
 }
 
-function terminalBuildSignature(data: TerminalBuildPayload): string {
-  const status = data.build_progress?.status ?? (data.cancelled ? 'cancelled' : undefined);
-  const errorDetail = status === 'error'
-    ? data.build_error
-      || data.build_progress?.detail
-      || data.build_progress?.error
-      || data.detail
-    : '';
-  return [status, data.build_progress?.ts, errorDetail]
-    .map((item) => asString(item))
-    .join('|');
-}
-
 function buildStageLabel(stage: string, fallback: string, t: Translate): string {
   const key = BUILD_STAGE_TRANSLATION_KEYS[stage];
   if (!key) return fallback || stage || t('skills.graph.buildLogFallback');
@@ -496,10 +468,6 @@ function buildLogSummary(entry: BuildLogEntry, t: Translate): string {
     t,
   );
   if (entry.stage === 'update.done') return label;
-  if (entry.stage === 'update.failed') {
-    const detail = asString(entry.detail || entry.error).trim();
-    return detail ? `${label}: ${localizedServerDetail(detail, 'skills.graph.errors.refreshFailed', t)}` : label;
-  }
   const hasGlobalCandidateProgress = entry.stage === 'graph.resolve.progress'
     && entry.completed_candidate_count !== undefined
     && entry.total_candidate_count !== undefined;
@@ -736,7 +704,6 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
   const hoveredRef = useRef<GraphNode | null>(null);
   const externalBuildRunningRef = useRef(false);
   const observedBuildLogSignatureRef = useRef<string | null>(null);
-  const observedTerminalBuildSignatureRef = useRef<string | null>(null);
   const autoFitRequestRef = useRef(0);
   const autoFitCancelledRef = useRef(false);
   const canvasSizeRef = useRef({ width: 0, height: 0 });
@@ -807,7 +774,6 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
 
   const applyBuildLog = useCallback((data: { build_log?: BuildLogEntry[]; build_progress?: BuildProgress; llm_token_usage?: LLMTokenUsageSummary }) => {
     const nextStatus = data.build_progress?.status;
-    if (nextStatus === 'error') setShowBuildLogPanel(true);
     const resetElapsedStart = nextStatus === 'running' && buildProgressStatusRef.current !== 'running';
     if (Array.isArray(data.build_log)) {
       const nextBuildLog = data.build_log;
@@ -831,30 +797,18 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
     }
   }, []);
 
-  const resetBuildUiOnTerminalStatus = useCallback((data: TerminalBuildPayload): boolean => {
+  const resetBuildUiOnTerminalStatus = useCallback((data: { detail?: string; cancelled?: boolean; build_progress?: BuildProgress }): boolean => {
     const status = data.build_progress?.status ?? (data.cancelled ? 'cancelled' : undefined);
     if (!isTerminalBuildStatus(status)) return false;
     externalBuildRunningRef.current = false;
     setUpdating(false);
     setBuildMode(null);
     setLoading(false);
-    observedTerminalBuildSignatureRef.current = terminalBuildSignature(data);
     if (status === 'error') {
-      setError(
-        localizedServerDetail(
-          data.build_error
-          || data.build_progress?.detail
-          || data.build_progress?.error
-          || data.detail,
-          'skills.graph.errors.refreshFailed',
-          t,
-        ),
-      );
-    } else {
-      setError(null);
+      setError(data.detail || data.build_progress?.label || t('skills.graph.errors.refreshFailed'));
     }
     return true;
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     graphRef.current = graph;
@@ -1018,20 +972,13 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
     try {
       const data = await webRequest<SkillGraphPayload>('skills.graph.get', {}, { timeoutMs: 60_000 });
       applyBuildLog(data);
-      if (isTerminalBuildStatus(data.build_progress?.status)) {
-        observedTerminalBuildSignatureRef.current = terminalBuildSignature(data);
-      }
       if (!data.success) {
         if (isBuildRunningPayload(data)) {
           setShowBuildLogPanel(true);
           keepLoading = true;
           return;
         }
-        throw new Error(localizedServerDetail(
-          data.build_error || data.build_progress?.detail || data.detail,
-          'skills.graph.errors.readFailed',
-          t,
-        ));
+        throw new Error(localizedServerDetail(data.detail, 'skills.graph.errors.readFailed', t));
       }
       const normalized = normalizeGraph(data);
       setPayload(data);
@@ -1045,16 +992,7 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
       selectedRef.current = null;
       setSelectedNode(null);
       setDetailDrawerOpen(false);
-      const hasLatestBuildFailure = data.build_progress?.status === 'error' || Boolean(data.build_error);
-      if (hasLatestBuildFailure) {
-        setError(localizedServerDetail(
-          data.build_error || data.build_progress?.detail || data.build_progress?.error,
-          'skills.graph.errors.refreshFailed',
-          t,
-        ));
-      } else {
-        setError(null);
-      }
+      setError(null);
       requestAutoFit();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1086,7 +1024,6 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
 
   const rebuildGraph = useCallback(async (mode: SymphonyBuildMode) => {
     const force = mode === 'full';
-    observedTerminalBuildSignatureRef.current = null;
     setBuildElapsedStart(null);
     setUpdating(true);
     setBuildMode(mode);
@@ -1108,11 +1045,7 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
       );
       applyBuildLog(data);
       if (!data.success) {
-        throw new Error(localizedServerDetail(
-          data.build_error || data.build_progress?.detail || data.build_progress?.error || data.detail,
-          'skills.graph.errors.refreshFailed',
-          t,
-        ));
+        throw new Error(localizedServerDetail(data.detail, 'skills.graph.errors.refreshFailed', t));
       }
       externalBuildRunningRef.current = true;
       onBuildAccepted?.(mode);
@@ -1264,21 +1197,15 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
           const status = data.build_progress?.status;
           const wasRunning = externalBuildRunningRef.current;
           if (status === 'running') {
-            if (!wasRunning) setError(null);
-            observedTerminalBuildSignatureRef.current = null;
             setShowBuildLogPanel(true);
             setLoading(true);
             nextDelay = 1000;
           }
           applyBuildLog(data);
           externalBuildRunningRef.current = status === 'running';
-          const terminalSignature = terminalBuildSignature(data);
-          if (
-            isTerminalBuildStatus(status)
-            && observedTerminalBuildSignatureRef.current !== terminalSignature
-          ) {
-            resetBuildUiOnTerminalStatus(data);
-            if (status === 'success') void loadGraph();
+          if (wasRunning && status === 'success') {
+            setLoading(false);
+            void loadGraph();
           } else if (status !== 'running') {
             setLoading(false);
           }
@@ -1300,7 +1227,7 @@ export const SkillGraphPanel = forwardRef<SkillGraphPanelHandle, SkillGraphPanel
         window.clearTimeout(timer);
       }
     };
-  }, [applyBuildLog, loadGraph, resetBuildUiOnTerminalStatus, updating]);
+  }, [applyBuildLog, loadGraph, updating]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

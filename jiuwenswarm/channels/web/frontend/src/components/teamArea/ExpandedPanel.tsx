@@ -14,9 +14,11 @@ export interface ExpandedPanelProps {
   onArtifactSelect?: (artifactId: string) => void;
   middleTab: { key: string; label: string; icon: ReactNode };
   showMiddleTab: boolean;
+  extraTabs?: { key: string; label: string; icon: ReactNode }[];
   resolveActiveTab: (activeTab: string, artifactsCount: number, reviewPanel?: ReactNode) => string;
   renderMiddleTabContent: () => ReactNode;
   renderPlanningContent: () => ReactNode;
+  renderExtraTabContent?: (tab: string) => ReactNode;
   testIdPrefix?: string;
 }
 
@@ -30,9 +32,11 @@ export function ExpandedPanel({
   onArtifactSelect,
   middleTab,
   showMiddleTab,
+  extraTabs = [],
   resolveActiveTab,
   renderMiddleTabContent,
   renderPlanningContent,
+  renderExtraTabContent,
   testIdPrefix = 'tool-panel',
 }: ExpandedPanelProps) {
   const tabPanelId = useId();
@@ -49,7 +53,7 @@ export function ExpandedPanel({
 
   const resolvedTab = resolveActiveTab(activeTab, artifactsCount, reviewPanel);
 
-  const tabs = useExpandedPanelTabs({ middleTab, showMiddleTab, artifactsCount, reviewPanel });
+  const tabs = useExpandedPanelTabs({ middleTab, showMiddleTab, extraTabs, artifactsCount, reviewPanel });
 
   return (
     <div ref={fullscreenRef} data-testid={`${testIdPrefix}-expanded-body`} className="flex h-full flex-col overflow-hidden bg-card">
@@ -72,6 +76,8 @@ export function ExpandedPanel({
       >
         {resolvedTab === middleTab.key ? (
           renderMiddleTabContent()
+        ) : extraTabs.some((tab) => tab.key === resolvedTab) && renderExtraTabContent ? (
+          renderExtraTabContent(resolvedTab)
         ) : resolvedTab === 'artifacts' ? (
           <ArtifactExpandedPanel selectedArtifactId={selectedArtifactId} onSelectArtifact={onArtifactSelect ?? (() => {})} />
         ) : resolvedTab === 'review' && reviewPanel ? (

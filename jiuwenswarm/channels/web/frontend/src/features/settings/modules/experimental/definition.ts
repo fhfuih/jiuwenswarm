@@ -1,11 +1,6 @@
 import { settingsNavigationIcons } from '../../../../assets/settings';
 import type { SettingsModuleDefinition } from '../../registry/types';
-import {
-  A2UISetting,
-  ExternalCliSettingsItem,
-  ProactiveLimitsSetting,
-  TrajectoryUiSetting,
-} from './ExperimentalSettings';
+import { A2UISetting, ExternalCliSettingsItem, ProactiveLimitsSetting } from './ExperimentalSettings';
 
 export const experimentalModule: SettingsModuleDefinition = {
   id: 'experimental',
@@ -22,11 +17,6 @@ export const experimentalModule: SettingsModuleDefinition = {
       id: 'a2ui',
       titleKey: 'settingsPanel.experimental.a2ui',
       items: [{ id: 'a2ui', component: 'custom', render: A2UISetting }],
-    },
-    {
-      id: 'trajectory-ui',
-      titleKey: 'settingsPanel.experimental.trajectoryUi',
-      items: [{ id: 'trajectory-ui-enabled', component: 'custom', render: TrajectoryUiSetting }],
     },
     {
       id: 'proactive-recommendation',

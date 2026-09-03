@@ -19,11 +19,13 @@ export interface PanelTabItem {
 export function useExpandedPanelTabs({
   middleTab,
   showMiddleTab,
+  extraTabs = [],
   artifactsCount,
   reviewPanel,
 }: {
   middleTab: { key: string; label: string; icon: ReactNode };
   showMiddleTab: boolean;
+  extraTabs?: PanelTabItem[];
   artifactsCount: number;
   reviewPanel?: ReactNode;
 }): PanelTabItem[] {
@@ -35,6 +37,7 @@ export function useExpandedPanelTabs({
       icon: <RecentTasksIcon className="h-4 w-4" aria-hidden="true" />,
     },
     ...(showMiddleTab ? [middleTab] : []),
+    ...extraTabs,
     ...(artifactsCount > 0
       ? [
           {

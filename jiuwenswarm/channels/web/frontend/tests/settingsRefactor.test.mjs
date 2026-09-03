@@ -31,6 +31,9 @@ import {
 import {
   buildMediaModelConfigUpdates,
   createMediaModelDraft,
+  mediaDefaultModelForPreset,
+  mediaModelOptionsForPreset,
+  shouldFetchRemoteMediaModels,
 } from '../node_modules/.cache/settings-refactor/modules/agent/mediaModelConfig.js';
 
 const root = new URL('../', import.meta.url);
@@ -1072,7 +1075,6 @@ test('every visible Settings control maps to an exact persistence field or RPC',
     'proactive_recommendation_enabled',
     'proactive_recommendation_max_recommend_per_day',
     'proactive_recommendation_max_rounds_per_tick',
-    'trajectory_ui_enabled',
   ]);
 
   const channelCatalogFile = parseTsx('src/features/settings/modules/channels/channelCatalog.ts');
@@ -1151,18 +1153,6 @@ test('every visible Settings control maps to an exact persistence field or RPC',
     assert.match(channelController, new RegExp(`getMethod: 'channel\\.${channelId}\\.get_conf'`));
     assert.match(channelController, new RegExp(`setMethod: 'channel\\.${channelId}\\.set_conf'`));
   }
-});
-
-test('saving the free-model switch refreshes the shared model catalog after persistence', () => {
-  const settingsConfig = source('src/features/settings/services/useSettingsConfig.ts');
-  const settingsPage = source('src/features/settings/SettingsPage.tsx');
-  const settingsServices = source('src/features/settings/services/SettingsServicesProvider.tsx');
-  const app = source('src/App.tsx');
-  assert.match(settingsServices, /onConfigSaved\?: \(updatedKeys: readonly string\[\]\) => Promise<void> \| void/);
-  assert.match(settingsConfig, /setConfig\([\s\S]{0,120}await onConfigSaved\?\.\(Object\.keys\(updates\)\)/);
-  assert.match(settingsPage, /onConfigSaved=\{onConfigSaved\}/);
-  assert.match(app, /updatedKeys\.includes\('enable_free_models'\)\) await handleModelsRefresh\(\)/);
-  assert.match(app, /onConfigSaved=\{handleSettingsConfigSaved\}/);
 });
 
 test('Settings form dialogs share the same dirty-close contract without disabling save', () => {
@@ -1284,8 +1274,85 @@ test('multimodal dialogs reuse provider-first model configuration without model 
   assert.match(dialog, /<ModelNameField/);
   assert.match(dialog, /'vendors\.list'/);
   assert.match(dialog, /'vendors\.fetch_models'/);
+  assert.match(dialog, /mediaModelOptionsForPreset/);
+  assert.match(dialog, /shouldFetchRemoteMediaModels/);
   assert.match(dialog, /showOptional=\{false\}/);
   assert.doesNotMatch(dialog, /config\.validate_model|OpenAIAccountSettings|reasoning_level|settingsActionIcons\.delete/);
+});
+
+test('image generation uses DashScope wanx presets instead of chat /v1/models', () => {
+  const alibaba = {
+    vendor_key: 'alibaba',
+    display_name: '阿里云百炼',
+    plan: 'custom_api',
+    client_provider: 'OpenAI',
+    api_base: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    default_model: 'qwen3.8-max',
+    model_options: ['qwen3.8-max', 'qwen3.7-max'],
+    icon_key: 'qwen',
+    models_endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models',
+    models_needs_key: true,
+    supports_anthropic: true,
+    anthropic_base: 'https://dashscope.aliyuncs.com/apps/anthropic',
+    anthropic_client_provider: 'Anthropic',
+    image_gen_default_model: 'wanx-v1',
+    image_gen_model_options: ['wanx-v1', 'wan2.5-t2i-preview', 'qwen-image-plus'],
+    image_gen_api_base: 'https://dashscope.aliyuncs.com/api/v1',
+  };
+  assert.deepEqual(mediaModelOptionsForPreset(alibaba, 'image_gen'), [
+    'wanx-v1',
+    'wan2.5-t2i-preview',
+    'qwen-image-plus',
+  ]);
+  assert.equal(mediaDefaultModelForPreset(alibaba, 'image_gen'), 'wanx-v1');
+  assert.equal(shouldFetchRemoteMediaModels(alibaba, 'image_gen'), false);
+  assert.deepEqual(mediaModelOptionsForPreset(alibaba, 'vision'), ['qwen3.8-max', 'qwen3.7-max']);
+  assert.equal(shouldFetchRemoteMediaModels(alibaba, 'vision'), true);
+  assert.equal(
+    buildMediaModelConfigUpdates(
+      {
+        vendor_selection: 'custom_api:alibaba',
+        protocol: 'openai',
+        api_base: alibaba.api_base,
+        api_key: 'sk-image',
+        model_name: 'wanx-v1',
+        model_input_mode: 'options',
+        provider: 'OpenAI',
+        endpoint_profile: 'dashscope',
+        vendor_key: 'alibaba',
+        plan: 'custom_api',
+      },
+      { reasoning: null, token_plan: [], coding_plan: [], custom_api: [alibaba] },
+      'image_gen',
+      true,
+    ).image_gen_api_base,
+    'https://dashscope.aliyuncs.com/api/v1',
+  );
+});
+
+test('video generation uses MiniMax H3 presets instead of chat /v1/models', () => {
+  const minimax = {
+    vendor_key: 'minimax',
+    display_name: 'MiniMax',
+    plan: 'custom_api',
+    client_provider: 'OpenAI',
+    api_base: 'https://api.minimaxi.com/v1',
+    default_model: 'MiniMax-M3',
+    model_options: ['MiniMax-M3', 'MiniMax-M2'],
+    icon_key: 'minimax',
+    models_endpoint: 'https://api.minimaxi.com/v1/models',
+    models_needs_key: true,
+    supports_anthropic: true,
+    anthropic_base: 'https://api.minimaxi.com/anthropic',
+    anthropic_client_provider: 'Anthropic',
+    video_gen_default_model: 'MiniMax-H3-Max',
+    video_gen_model_options: ['MiniMax-H3', 'MiniMax-H3-Max'],
+  };
+  assert.deepEqual(mediaModelOptionsForPreset(minimax, 'video_gen'), ['MiniMax-H3', 'MiniMax-H3-Max']);
+  assert.equal(mediaDefaultModelForPreset(minimax, 'video_gen'), 'MiniMax-H3-Max');
+  assert.equal(shouldFetchRemoteMediaModels(minimax, 'video_gen'), false);
+  assert.deepEqual(mediaModelOptionsForPreset(minimax, 'vision'), ['MiniMax-M3', 'MiniMax-M2']);
+  assert.equal(shouldFetchRemoteMediaModels(minimax, 'vision'), true);
 });
 
 test('legacy multimodal configuration remains custom while provider selections persist exact catalog identity', () => {

@@ -140,7 +140,6 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
   const detailRevisionRef = useRef(0);
   const filesRevisionRef = useRef(0);
   const fileRevisionRef = useRef(0);
-  const actionNoticeTimerRef = useRef<number | null>(null);
   const installFlowTargetRef = useRef<string | null>(null);
   const reconnectFlowTargetRef = useRef<string | null>(null);
   const connectorError = useConnectorStore(state => state.error);
@@ -197,14 +196,6 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
   useEffect(() => {
     void loadCatalog();
   }, [loadCatalog]);
-
-  useEffect(() => {
-    return () => {
-      if (actionNoticeTimerRef.current !== null) {
-        window.clearTimeout(actionNoticeTimerRef.current);
-      }
-    };
-  }, []);
 
   const openDetail = useCallback(
     async (id: string) => {
@@ -379,14 +370,8 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
     setActionError(null);
     setActionNotice(null);
     try {
-      const fromDetail = view === 'detail' && selectedId === id;
       const result = await client.uninstallDefinition(id);
-      if (fromDetail) {
-        await loadCatalog();
-        goBackToCatalog();
-      } else {
-        await refreshAfterAction(id);
-      }
+      await refreshAfterAction(id);
       if (result.notice) setActionNotice(result.notice);
     } catch (error) {
       setActionError(formatActionError(error, t('agentManagement.states.actionError')));
@@ -460,10 +445,6 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
   };
 
   const handleUpload = async (path: string) => {
-    if (actionNoticeTimerRef.current !== null) {
-      window.clearTimeout(actionNoticeTimerRef.current);
-      actionNoticeTimerRef.current = null;
-    }
     setActionError(null);
     setActionNotice(null);
     setUploadError(null);
@@ -475,12 +456,7 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
       setMineQuery('');
       setMinePage(1);
       setView('mine');
-      const notice = t('agentManagement.states.uploadSuccess', { id: result.id });
-      setActionNotice(notice);
-      actionNoticeTimerRef.current = window.setTimeout(() => {
-        setActionNotice(current => (current === notice ? null : current));
-        actionNoticeTimerRef.current = null;
-      }, 3000);
+      setActionNotice(t('agentManagement.states.uploadSuccess', { id: result.id }));
     } catch (error) {
       setUploadError(formatActionError(error, t('agentManagement.states.uploadError')));
     }
@@ -513,7 +489,7 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
   if (view === 'detail') {
     return (
       <>
-        <main className="agent-management-panel agent-management-panel--detail" data-source={client.source} data-testid="agent-management-panel" data-variant="detail">
+        <main className="agent-management-panel agent-management-panel--detail" data-source={client.source}>
           <DefinitionDetailPage
             detail={state.detail}
             detailStatus={state.detailStatus}
@@ -557,7 +533,7 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
   if (view === 'create') {
     return (
       <>
-        <main className="agent-management-panel agent-management-panel--create" data-source={client.source} data-testid="agent-management-panel" data-variant="create">
+        <main className="agent-management-panel agent-management-panel--create" data-source={client.source}>
           <AgentEditor
             draft={draft}
             skillOptions={state.skillOptions}
@@ -585,21 +561,19 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
 
   const isMine = view === 'mine';
   return (
-    <main className={`agent-management-panel agent-management-panel--${isMine ? 'mine' : 'catalog'}`} data-source={client.source} data-testid="agent-management-panel" data-variant={isMine ? 'mine' : 'catalog'}>
-      <header className="agent-management-header" data-testid="agent-management-header">
+    <main className={`agent-management-panel agent-management-panel--${isMine ? 'mine' : 'catalog'}`} data-source={client.source}>
+      <header className="agent-management-header">
         <div>
-          <h1 data-testid="agent-management-title">{t('agentManagement.title')}</h1>
-          <p data-testid="agent-management-subtitle">{t('agentManagement.subtitle')}</p>
+          <h1>{t('agentManagement.title')}</h1>
+          <p>{t('agentManagement.subtitle')}</p>
         </div>
       </header>
-      <div className="agent-management-primary-row" data-testid="agent-management-primary-row">
-        <nav className="agent-management-primary-tabs" role="tablist" aria-label={t('agentManagement.tabsLabel')} data-testid="agent-management-primary-tabs">
+      <div className="agent-management-primary-row">
+        <nav className="agent-management-primary-tabs" role="tablist" aria-label={t('agentManagement.tabsLabel')}>
           <button
             type="button"
             role="tab"
             aria-selected={!isMine}
-            data-testid="agent-management-primary-tab"
-            data-variant="catalog"
             className={!isMine ? 'is-active' : ''}
             onClick={() => {
               setCreateMenuOpen(false);
@@ -614,8 +588,6 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
             type="button"
             role="tab"
             aria-selected={isMine}
-            data-testid="agent-management-primary-tab"
-            data-variant="mine"
             className={isMine ? 'is-active' : ''}
             onClick={() => {
               setCreateMenuOpen(false);
@@ -627,40 +599,38 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
             {t('agentManagement.tabs.mine')}
           </button>
         </nav>
-        <div className="agent-management-primary-actions" data-testid="agent-management-primary-actions">
-          <label className="agent-management-search" data-testid="agent-management-search">
+        <div className="agent-management-primary-actions">
+          <label className="agent-management-search">
             <SearchIcon aria-hidden="true" />
+            <span className="sr-only">{t('agentManagement.searchLabel')}</span>
             <input
               type="search"
               name="agent-management-search"
-              aria-label={t('agentManagement.searchLabel')}
               autoComplete="off"
               disabled={connectorFlowId !== null}
               value={isMine ? mineQuery : query}
               onChange={event => (isMine ? (setMineQuery(event.target.value), setMinePage(1)) : (setQuery(event.target.value), setCatalogPage(1)))}
               placeholder={t(isMine ? 'agentManagement.searchMine' : 'agentManagement.searchCatalog')}
-              data-testid="agent-management-search-input"
             />
           </label>
           {isMine ? (
-            <div className="agent-management-create-menu" data-testid="agent-management-create-menu">
+            <div className="agent-management-create-menu">
               <button
                 type="button"
                 className="agent-management-button agent-management-button--primary agent-management-create"
                 aria-haspopup="menu"
                 aria-expanded={createMenuOpen}
-                data-testid="agent-management-create-button"
                 onClick={() => setCreateMenuOpen(open => !open)}
               >
                 {t('agentManagement.actions.create')}
                 <ChevronDown size={15} aria-hidden="true" />
               </button>
               {createMenuOpen ? (
-                <div className="agent-management-create-menu__popover" role="menu" data-testid="agent-management-create-menu-popover">
-                  <button type="button" role="menuitem" data-testid="agent-management-create-menu-item" data-variant="create-first" onClick={openCreate}>
+                <div className="agent-management-create-menu__popover" role="menu">
+                  <button type="button" role="menuitem" onClick={openCreate}>
                     {t('agentManagement.actions.createFirst')}
                   </button>
-                  <button type="button" role="menuitem" data-testid="agent-management-create-menu-item" data-variant="create-by-chat" onClick={() => { setCreateMenuOpen(false); onCreateViaChat?.(); }}>
+                  <button type="button" role="menuitem" onClick={() => { setCreateMenuOpen(false); onCreateViaChat?.(); }}>
                     {t('agentManagement.actions.createByChat')}
                   </button>
                   <button type="button" role="menuitem" onClick={openUpload}>
@@ -673,12 +643,12 @@ export function AgentManagementPanel({ onUseAgent, onUsePrompt, onCreateViaChat 
         </div>
       </div>
       {actionError ? (
-        <div className="agent-management-inline-error" role="alert" data-testid="agent-management-inline-error">
+        <div className="agent-management-inline-error" role="alert">
           {actionError}
         </div>
       ) : null}
       {actionNotice ? (
-        <div className="agent-management-inline-notice" role="status" data-testid="agent-management-inline-notice">
+        <div className="agent-management-inline-notice" role="status">
           {actionNotice}
         </div>
       ) : null}

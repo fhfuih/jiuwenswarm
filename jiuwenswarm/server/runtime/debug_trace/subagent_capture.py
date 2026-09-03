@@ -49,7 +49,9 @@ async def invoke_subagent_with_trace(
     # Safety net for a subagent that reached here without going through the
     # create_subagent hook (a host-built instance, say). Idempotent, so the
     # normal path — where the hook already attached the rail — pays nothing.
-    from openjiuwen.harness.observability import attach_subagent_observability
+    from jiuwenswarm.agents.harness.agent_observability import (
+        attach_subagent_observability,
+    )
 
     attach_subagent_observability(subagent)
 

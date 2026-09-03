@@ -780,9 +780,6 @@ def _build_context_messages_from_history(
     Returns ``(context_messages, skipped_record_count)``.
     """
     from openjiuwen.core.foundation.llm.schema.message import (
-        OPENJIUWEN_MESSAGE_ORIGIN_EXTERNAL_USER,
-        OPENJIUWEN_MESSAGE_ORIGIN_METADATA,
-        OPENJIUWEN_MESSAGE_SOURCE_KIND_METADATA,
         UserMessage,
         AssistantMessage,
         ToolMessage,
@@ -829,15 +826,7 @@ def _build_context_messages_from_history(
         # ── User message ──
         if role == "user":
             if content.strip():
-                source_kind = str(record.get("channel_id") or "history").strip()
-                context_messages.append(UserMessage(
-                    content=content,
-                    metadata={
-                        OPENJIUWEN_MESSAGE_ORIGIN_METADATA:
-                            OPENJIUWEN_MESSAGE_ORIGIN_EXTERNAL_USER,
-                        OPENJIUWEN_MESSAGE_SOURCE_KIND_METADATA: source_kind,
-                    },
-                ))
+                context_messages.append(UserMessage(content=content))
             continue
 
         # ── Only process assistant events below ──

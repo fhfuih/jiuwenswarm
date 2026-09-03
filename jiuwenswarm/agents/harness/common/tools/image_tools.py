@@ -322,7 +322,144 @@ async def visual_question_answering(image_path_or_url: str, question: str) -> st
     return f"OCR results:\n{ocr_out}\n\nVQA result:\n{vqa_out}"
 
 
-async def _invoke_model_image_generation(prompt: str, size: str = "1024x1024", quality: str = "standard") -> dict:
+def _image_path_to_data_uri(path: str | Path) -> str:
+    file_path = Path(path)
+    suffix = file_path.suffix.lower()
+    mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(
+        suffix, "image/png"
+    )
+    encoded = base64.b64encode(file_path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _dashscope_image_gen_url(api_base: str, path: str) -> str:
+    origin = (api_base or "").strip().rstrip("/")
+    if origin.endswith("/compatible-mode/v1"):
+        origin = origin[: -len("/compatible-mode/v1")] + "/api/v1"
+    elif not origin.endswith("/api/v1"):
+        origin = origin + "/api/v1"
+    return f"{origin}/{path.lstrip('/')}"
+
+
+def _extract_generated_image(payload: Any) -> tuple[str | None, str | None]:
+    """Return (url, base64) from a DashScope image response."""
+    if not isinstance(payload, dict):
+        return None, None
+    stack: list[Any] = [payload]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            for key in ("image", "url", "image_url"):
+                value = item.get(key)
+                if isinstance(value, str) and value.strip():
+                    text = value.strip()
+                    if text.startswith("data:image") and "," in text:
+                        return None, text.split(",", 1)[1]
+                    if text.startswith(("http://", "https://")):
+                        return text, None
+                    if key == "image" and len(text) > 80 and " " not in text:
+                        return None, text
+                if isinstance(value, dict):
+                    stack.append(value)
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return None, None
+
+
+def _write_generated_png(image_url: str | None, image_base64: str | None) -> dict[str, Any]:
+    output_dir = get_agent_workspace_dir()
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    random_suffix = random.randint(1000, 9999)
+    output_path = output_dir / f"generated_{timestamp}_{random_suffix}.png"
+    if image_base64:
+        output_path.write_bytes(base64.b64decode(image_base64))
+        return {"image_path": str(output_path.absolute())}
+    if image_url:
+        ua = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        )
+        response = requests.get(image_url, headers={"User-Agent": ua}, verify=get_requests_verify())
+        response.raise_for_status()
+        output_path.write_bytes(response.content)
+        return {"image_path": str(output_path.absolute()), "original_url": image_url}
+    return {"error": "[ERROR]: No valid image data in response"}
+
+
+def _invoke_dashscope_image_to_image(
+    prompt: str,
+    *,
+    api_key: str,
+    api_base: str,
+    model: str,
+    reference_images: list[str],
+    timeout: int,
+) -> dict[str, Any]:
+    """Send reference stills to DashScope multimodal / image2image generation."""
+    refs = [str(item).strip() for item in reference_images if str(item).strip()]
+    if not refs:
+        return {"error": "[ERROR]: image-to-image requires at least one reference image"}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    model_l = (model or "").strip().lower()
+    if model_l.startswith("wanx") or model_l.startswith("wan2"):
+        url = _dashscope_image_gen_url(api_base, "services/aigc/image2image/image-synthesis")
+        payload: dict[str, Any] = {
+            "model": model,
+            "input": {
+                "prompt": prompt,
+                "ref_img": _image_path_to_data_uri(refs[0]),
+            },
+            "parameters": {"n": 1},
+        }
+    else:
+        url = _dashscope_image_gen_url(api_base, "services/aigc/multimodal-generation/generation")
+        content: list[dict[str, str]] = [
+            {"image": _image_path_to_data_uri(path)} for path in refs[:4]
+        ]
+        content.append({"text": prompt})
+        payload = {
+            "model": model,
+            "input": {"messages": [{"role": "user", "content": content}]},
+            "parameters": {"watermark": False, "prompt_extend": False},
+        }
+    logger.info(
+        "[generate_image] DashScope image-to-image model=%s refs=%s url=%s",
+        model,
+        len(refs),
+        url,
+    )
+    response = requests.post(
+        url,
+        headers=headers,
+        json=payload,
+        timeout=timeout,
+        verify=get_requests_verify(),
+    )
+    if not response.ok:
+        return {
+            "error": (
+                f"[ERROR]: DashScope image-to-image failed {response.status_code}: "
+                f"{(response.text or '')[:400]}"
+            )
+        }
+    body = response.json() if response.content else {}
+    image_url, image_base64 = _extract_generated_image(body)
+    saved = _write_generated_png(image_url, image_base64)
+    if "error" in saved:
+        return {"error": f"[ERROR]: DashScope image-to-image returned no image: {body}"}
+    return {**saved, "revised_prompt": prompt}
+
+
+async def _invoke_model_image_generation(
+    prompt: str,
+    size: str = "1024x1024",
+    quality: str = "standard",
+    reference_images: list[str] | None = None,
+) -> dict:
     """
     Generate image using internal Model class (DashScope, etc.).
 
@@ -360,6 +497,21 @@ async def _invoke_model_image_generation(prompt: str, size: str = "1024x1024", q
     if provider in ("DashScope", "dashscope"):
         provider = "OpenAI"
         endpoint_profile = endpoint_profile or "dashscope"
+
+    refs = [str(item).strip() for item in (reference_images or []) if str(item).strip()]
+    timeout = int(mc.get("timeout", 1800) or 1800)
+    if refs:
+        i2i = _invoke_dashscope_image_to_image(
+            prompt,
+            api_key=api_key,
+            api_base=api_base,
+            model=model,
+            reference_images=refs,
+            timeout=timeout,
+        )
+        if "image_path" in i2i:
+            return i2i
+        logger.warning("Designer image-to-image failed, falling back to text-to-image: %s", i2i.get("error"))
 
     try:
         _mcc_kwargs: dict[str, Any] = dict(
