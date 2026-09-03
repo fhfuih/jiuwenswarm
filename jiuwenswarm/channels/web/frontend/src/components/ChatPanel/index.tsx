@@ -116,6 +116,8 @@ interface ChatPanelProps {
   onClearGoal?: (sessionId: string) => void;
   /** 目标 active 但当前无处理中任务时，消息入队后主动排空一次，见 InputArea.tsx 对应调用点 */
   onDrainTaskQueueIfIdle?: (sessionId: string) => void;
+  /** 任务页选「设计」后发送：跳转设计栏并 bootstrap */
+  onLaunchDesign?: (prompt: string) => void;
 }
 
 // 邀请指令只对 human_agent 成员存在（见 upsertHumanShareCommandFromEvent 的
@@ -804,6 +806,7 @@ export function ChatPanel({
   onResumeGoal,
   onClearGoal,
   onDrainTaskQueueIfIdle,
+  onLaunchDesign,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const activeSessionId = useChatStore((s) => s.activeSessionId);
@@ -1462,6 +1465,7 @@ export function ChatPanel({
                   onSavePermission={onSavePermission}
                   onSetGoal={onSetGoal}
                   onClearGoal={onClearGoal}
+                  onLaunchDesign={onLaunchDesign}
                 />
               </div>
               <div className="chat-suggestions" data-testid="chat-panel-welcome-suggestions">
@@ -1507,6 +1511,7 @@ export function ChatPanel({
             onSetGoal={onSetGoal}
             onClearGoal={onClearGoal}
             onDrainTaskQueueIfIdle={onDrainTaskQueueIfIdle}
+            onLaunchDesign={onLaunchDesign}
           />
         </div>
       )}

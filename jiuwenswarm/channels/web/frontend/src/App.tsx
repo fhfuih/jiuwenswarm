@@ -28,6 +28,7 @@ import {
 } from './features/settings/settingsNavigation';
 import { ConnectorMarketPanel } from './components/ConnectorMarket';
 import { DesignerPage } from './features/designer/components/DesignerPage';
+import { launchDesignerFromTask } from './features/designer/designerEntry';
 import {
   ShareImageDocument,
   exportShareImageNode,
@@ -2688,6 +2689,24 @@ function AppContent({
     [activeNav, isMobile, modelSetupGuideStep, setTeamAreaExpanded, setToolPanelHidden, t],
   );
 
+  const handleLaunchDesign = useCallback(
+    (prompt: string) => {
+      const workspace = useWorkspaceStore.getState();
+      const workContext = getWorkContextForSession(sessionId);
+      void launchDesignerFromTask({
+        prompt,
+        projectId: workContext.project_id || sessionProject?.project_id,
+        projectDir: workContext.project_dir || sessionProject?.project_dir,
+        workMode: workspace.workMode === 'code' ? 'code' : 'work',
+        onNavigateToDesign: () => handleNavigate('design'),
+        thinkingText: t('designer.chat.thinking'),
+        doneText: t('designer.chat.bootstrapDone'),
+        errorText: t('designer.chat.bootstrapError'),
+      });
+    },
+    [handleNavigate, sessionId, sessionProject?.project_dir, sessionProject?.project_id, t],
+  );
+
   const skipModelSetupGuide = useCallback(() => {
     setModelSetupGuideStep(null);
     setModelSetupGuideManual(false);
@@ -2932,6 +2951,7 @@ function AppContent({
                       onResumeGoal={resumeGoal}
                       onClearGoal={handleClearGoal}
                       onDrainTaskQueueIfIdle={drainTaskQueueIfIdle}
+                      onLaunchDesign={handleLaunchDesign}
                     />
                   </div>
                 </div>
@@ -3010,7 +3030,12 @@ function AppContent({
           </div>
         )}
         {activeNav === 'design' && (
-          <DesignerPage projectId={sessionProject?.project_id} />
+          <DesignerPage
+            projectId={
+              sessionProject?.project_id
+              || getWorkContextForSession(sessionId).project_id
+            }
+          />
         )}
         {activeNav === 'sessions' && (
           <div className="app-section">
