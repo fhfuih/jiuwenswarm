@@ -67,6 +67,16 @@
       "notImplemented": "Not implemented",
       "send": "Send"
     },
+    "run": {
+      "controlLabel": "Run controls",
+      "execute": "Run",
+      "continue": "Continue",
+      "retryFailed": "Retry failed nodes",
+      "running": "Running…",
+      "moreActions": "More run actions",
+      "rerunCurrent": "Rerun current nodes",
+      "restart": "Restart workflow"
+    },
     "toolbar": {
       "modeLabel": "Node mode",
       "upload": "Upload",
@@ -296,15 +306,37 @@
         "title": "Browser run mode",
         "description": "Show the browser window in the foreground or run in headless mode."
       },
-      "model_name": { "title": "Model name", "placeholder": "e.g. glm-4.7" },
-      "alias": { "title": "Custom alias", "placeholder": "e.g. GLM-4.7 Production" },
-      "api_base": { "title": "API URL", "placeholder": "e.g. https://api.openai.com/v1" },
-      "api_key": { "title": "API key", "placeholder": "e.g. sk-..." },
-      "model_provider": { "title": "Model provider" },
-      "reasoning_level": { "title": "Reasoning" },
-      "embed_api_base": { "title": "API URL" },
-      "embed_api_key": { "title": "API key" },
-      "embed_model": { "title": "Model name" },
+      "model_name": {
+        "title": "Model name",
+        "placeholder": "e.g. glm-4.7"
+      },
+      "alias": {
+        "title": "Custom alias",
+        "placeholder": "e.g. GLM-4.7 Production"
+      },
+      "api_base": {
+        "title": "API URL",
+        "placeholder": "e.g. https://api.openai.com/v1"
+      },
+      "api_key": {
+        "title": "API key",
+        "placeholder": "e.g. sk-..."
+      },
+      "model_provider": {
+        "title": "Model provider"
+      },
+      "reasoning_level": {
+        "title": "Reasoning"
+      },
+      "embed_api_base": {
+        "title": "API URL"
+      },
+      "embed_api_key": {
+        "title": "API key"
+      },
+      "embed_model": {
+        "title": "Model name"
+      },
       "enable_free_models": {
         "title": "Enable free models",
         "description": "When enabled, available free models are fetched live. Note that free models may have limitations such as rate limits or restricted context window size. Free models are sourced from the Opencode Zen gateway (https://opencode.ai/zen), obtained by intersecting the models.dev catalog (https://models.opencode.ai/api.json) with the Zen live model list (criterion: input price is 0)."
@@ -321,24 +353,61 @@
         "title": "DuckDuckGo search",
         "description": "Enable the free DuckDuckGo search source."
       },
-      "free_search_bing_enabled": { "title": "Bing search", "description": "Enable the free Bing search source." },
-      "jina_api_key": { "title": "Jina API key" },
-      "bocha_api_key": { "title": "Bocha API key" },
-      "perplexity_api_key": { "title": "Perplexity API key" },
-      "serper_api_key": { "title": "Serper API key" },
-      "github_token": { "title": "GitHub access token" },
-      "vision_api_base": { "title": "API URL" },
-      "vision_api_key": { "title": "API key" },
-      "vision_model": { "title": "Model name" },
-      "vision_provider": { "title": "Model provider" },
-      "audio_api_base": { "title": "API URL" },
-      "audio_api_key": { "title": "API key" },
-      "audio_model": { "title": "Model name" },
-      "audio_provider": { "title": "Model provider" },
-      "video_api_base": { "title": "API URL" },
-      "video_api_key": { "title": "API key" },
-      "video_model": { "title": "Model name" },
-      "video_provider": { "title": "Model provider" },
+      "free_search_bing_enabled": {
+        "title": "Bing search",
+        "description": "Enable the free Bing search source."
+      },
+      "jina_api_key": {
+        "title": "Jina API key"
+      },
+      "bocha_api_key": {
+        "title": "Bocha API key"
+      },
+      "perplexity_api_key": {
+        "title": "Perplexity API key"
+      },
+      "serper_api_key": {
+        "title": "Serper API key"
+      },
+      "github_token": {
+        "title": "GitHub access token"
+      },
+      "vision_api_base": {
+        "title": "API URL"
+      },
+      "vision_api_key": {
+        "title": "API key"
+      },
+      "vision_model": {
+        "title": "Model name"
+      },
+      "vision_provider": {
+        "title": "Model provider"
+      },
+      "audio_api_base": {
+        "title": "API URL"
+      },
+      "audio_api_key": {
+        "title": "API key"
+      },
+      "audio_model": {
+        "title": "Model name"
+      },
+      "audio_provider": {
+        "title": "Model provider"
+      },
+      "video_api_base": {
+        "title": "API URL"
+      },
+      "video_api_key": {
+        "title": "API key"
+      },
+      "video_model": {
+        "title": "Model name"
+      },
+      "video_provider": {
+        "title": "Model provider"
+      },
       "swarmflow_enabled": {
         "title": "Dynamic workflow",
         "description": "Control whether the agent team enables dynamic workflow capabilities."
@@ -347,7 +416,10 @@
         "title": "Global permission mode",
         "description": "Choose the shared guardrail mode for ordinary Agents and Teams."
       },
-      "a2ui_enabled": { "title": "Enable A2UI", "description": "Render supported results as interactive interfaces." },
+      "a2ui_enabled": {
+        "title": "Enable A2UI",
+        "description": "Render supported results as interactive interfaces."
+      },
       "external_cli_agent_claude_enabled": {
         "title": "Enable Claude",
         "description": "Allow a Team Leader to spawn a Claude Agent."
@@ -356,7 +428,9 @@
         "title": "Use built-in Claude CLI",
         "description": "Do not specify a local CLI path; let the SDK use its default lookup."
       },
-      "external_cli_agent_claude_cli_path": { "title": "Claude CLI path" },
+      "external_cli_agent_claude_cli_path": {
+        "title": "Claude CLI path"
+      },
       "external_cli_agent_codex_enabled": {
         "title": "Enable Codex",
         "description": "Allow a Team Leader to spawn a Codex Agent; first use may install dependencies."
@@ -365,7 +439,9 @@
         "title": "Use built-in Codex CLI",
         "description": "Do not specify a local CLI path; let the SDK use its default lookup."
       },
-      "external_cli_agent_codex_cli_path": { "title": "Codex CLI path" },
+      "external_cli_agent_codex_cli_path": {
+        "title": "Codex CLI path"
+      },
       "proactive_recommendation_enabled": {
         "title": "Enable proactive recommendations",
         "description": "Allow recommendations to be sent when their conditions are met."
@@ -2161,8 +2237,14 @@
     "title": "Agent Management",
     "subtitle": "Create and manage reusable Agent assets",
     "tabsLabel": "Agent management categories",
-    "tabs": { "catalog": "Agent marketplace", "mine": "My Agents" },
-    "source": { "builtin": "Official", "local": "Mine" },
+    "tabs": {
+      "catalog": "Agent marketplace",
+      "mine": "My Agents"
+    },
+    "source": {
+      "builtin": "Official",
+      "local": "Mine"
+    },
     "categoryLabel": "Agent categories",
     "categoryAll": "All",
     "categoryOther": "Other",
@@ -2203,7 +2285,10 @@
       "createViaChatPrompt": "Help me create an xxx Agent who is good at xxx",
       "back": "Back"
     },
-    "card": { "open": "Open {{name}} details", "actions": "Actions for {{name}}" },
+    "card": {
+      "open": "Open {{name}} details",
+      "actions": "Actions for {{name}}"
+    },
     "states": {
       "installed": "Installed",
       "loadError": "Unable to load the Agent list. Try again.",
@@ -2760,12 +2845,17 @@
       "cancel": "Cancel",
       "confirm": "Confirm"
     },
-    "runtime": { "processing": "Processing" },
+    "runtime": {
+      "processing": "Processing"
+    },
     "deleteDialog": {
       "title": "Delete",
       "description": "Delete “<name>{{title}}</name>”? This action cannot be undone."
     },
-    "notFound": { "title": "Conversation not found or deleted", "newConversation": "New conversation" },
+    "notFound": {
+      "title": "Conversation not found or deleted",
+      "newConversation": "New conversation"
+    },
     "errors": {
       "delete": "Failed to delete conversation",
       "create": "Failed to create conversation",
@@ -3087,10 +3177,21 @@
       "expired": "Expired"
     },
     "schedule": {
-      "tab": { "interval": "Interval", "cron": "Cron expression", "once": "Once" },
-      "interval": { "label": "Every", "unit": "minutes, return to this session" },
-      "cron": { "hint": "Standard 5-field format: minute hour day month weekday (e.g. 0 9 * * 1-5 = weekdays at 9am)" },
-      "once": { "hint": "Pick a date and time; the job fires once at that moment and is then marked completed" },
+      "tab": {
+        "interval": "Interval",
+        "cron": "Cron expression",
+        "once": "Once"
+      },
+      "interval": {
+        "label": "Every",
+        "unit": "minutes, return to this session"
+      },
+      "cron": {
+        "hint": "Standard 5-field format: minute hour day month weekday (e.g. 0 9 * * 1-5 = weekdays at 9am)"
+      },
+      "once": {
+        "hint": "Pick a date and time; the job fires once at that moment and is then marked completed"
+      },
       "summary": {
         "interval": "Return to this session every {{minutes}} min",
         "cron": "{{expr}} ({{timezone}}), return to this session",
@@ -3122,8 +3223,15 @@
       "titleEdit": "Edit heartbeat job",
       "back": "Back"
     },
-    "concurrencyPolicy": { "skip": "Skip", "queue": "Queue", "replace": "Replace" },
-    "sessionDeletedPolicy": { "disable": "Disable job", "completed": "Mark completed" },
+    "concurrencyPolicy": {
+      "skip": "Skip",
+      "queue": "Queue",
+      "replace": "Replace"
+    },
+    "sessionDeletedPolicy": {
+      "disable": "Disable job",
+      "completed": "Mark completed"
+    },
     "panel": {
       "title": "Heartbeat Jobs",
       "loading": "Loading…",
