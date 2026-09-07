@@ -43,8 +43,8 @@ export type DesignerReactFlowGraph = {
   edges: DesignerReactFlowEdge[];
 };
 
-const DEFAULT_NODE_WIDTH = 280;
-const DEFAULT_NODE_HEIGHT = 160;
+export const DESIGNER_NODE_WIDTH = 280;
+export const DESIGNER_NODE_HEIGHT = 160;
 
 function layoutPosition(layout: NodeLayout | undefined): { x: number; y: number } {
   return {
@@ -53,10 +53,8 @@ function layoutPosition(layout: NodeLayout | undefined): { x: number; y: number 
   };
 }
 
-function nodeStyle(layout: NodeLayout | undefined): DesignerReactFlowNode['style'] | undefined {
-  const width = typeof layout?.width === 'number' ? layout.width : DEFAULT_NODE_WIDTH;
-  const height = typeof layout?.height === 'number' ? layout.height : DEFAULT_NODE_HEIGHT;
-  return { width, height };
+function nodeStyle(): DesignerReactFlowNode['style'] {
+  return { width: DESIGNER_NODE_WIDTH, height: DESIGNER_NODE_HEIGHT };
 }
 
 export function toReactFlowGraph(graph: DesignerExecutionGraph): DesignerReactFlowGraph {
@@ -64,7 +62,7 @@ export function toReactFlowGraph(graph: DesignerExecutionGraph): DesignerReactFl
     id: node.id,
     type: node.type,
     position: layoutPosition(node.layout),
-    style: nodeStyle(node.layout),
+    style: nodeStyle(),
     data: {
       label: node.label,
       nodeType: node.type,
@@ -78,7 +76,7 @@ export function toReactFlowGraph(graph: DesignerExecutionGraph): DesignerReactFl
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    type: edge.kind === 'sync' ? 'straight' : 'smoothstep',
+    type: 'designer',
     label: edge.label,
     kind: edge.kind,
   }));
@@ -86,16 +84,12 @@ export function toReactFlowGraph(graph: DesignerExecutionGraph): DesignerReactFl
   return { nodes, edges };
 }
 
-function mergeLayout(
-  existing: NodeLayout | undefined,
-  position: { x: number; y: number },
-  style: DesignerReactFlowNode['style'],
-): NodeLayout {
+function mergeLayout(position: { x: number; y: number }): NodeLayout {
   return {
     x: position.x,
     y: position.y,
-    width: style?.width ?? existing?.width ?? DEFAULT_NODE_WIDTH,
-    height: style?.height ?? existing?.height ?? DEFAULT_NODE_HEIGHT,
+    width: DESIGNER_NODE_WIDTH,
+    height: DESIGNER_NODE_HEIGHT,
   };
 }
 
@@ -118,7 +112,7 @@ export function fromReactFlowGraph(
       type: (existing?.type ?? data.nodeType ?? rfNode.type) as DesignerGraphNode['type'],
       label: data.label ?? existing?.label ?? rfNode.id,
       config: data.config ?? existing?.config ?? {},
-      layout: mergeLayout(existing?.layout, rfNode.position, rfNode.style),
+      layout: mergeLayout(rfNode.position),
       output_ref: data.outputRef ?? existing?.output_ref ?? null,
     };
   });

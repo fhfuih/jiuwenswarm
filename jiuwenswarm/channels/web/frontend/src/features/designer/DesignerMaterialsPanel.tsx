@@ -1,3 +1,4 @@
+import { Expand, Shrink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DesignerTextEditor } from './DesignerTextEditor';
 import { classifyDesignerOutput, isEditableDesignerMaterial, type DesignerMaterial } from './designerMaterials';
@@ -6,6 +7,8 @@ type DesignerMaterialsPanelProps = {
   materials: DesignerMaterial[];
   selectedId: string;
   pendingNodeId?: string;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   onSelect: (nodeId: string) => void;
   onOpenViewer: (id: string) => void;
   onCompare?: (nodeId: string) => void;
@@ -19,6 +22,8 @@ export function DesignerMaterialsPanel({
   materials,
   selectedId,
   pendingNodeId,
+  collapsed = false,
+  onToggleCollapsed,
   onSelect,
   onOpenViewer,
   onCompare,
@@ -40,12 +45,27 @@ export function DesignerMaterialsPanel({
       : [];
 
   return (
-    <aside className="designer-materials" data-testid="designer-materials">
+    <aside className="designer-materials" data-testid="designer-materials" data-collapsed={collapsed ? 'true' : 'false'}>
       <header className="designer-materials__header">
-        <h2>{t('designer.materials.title')}</h2>
-        <p>{t('designer.materials.hint')}</p>
+        {!collapsed ? (
+          <>
+            <h2>{t('designer.materials.title')}</h2>
+            <p>{t('designer.materials.hint')}</p>
+          </>
+        ) : null}
         <div className="designer-materials__header-actions">
-          {pendingNodeId && onCompare ? (
+          {onToggleCollapsed ? (
+            <button
+              type="button"
+              className="designer-materials__toggle"
+              onClick={onToggleCollapsed}
+              aria-label={collapsed ? t('designer.materials.expand') : t('designer.materials.collapse')}
+              data-testid="designer-materials-toggle"
+            >
+              {collapsed ? <Expand size={16} aria-hidden /> : <Shrink size={16} aria-hidden />}
+            </button>
+          ) : null}
+          {!collapsed && pendingNodeId && onCompare ? (
             <button
               type="button"
               className="btn primary"
@@ -55,6 +75,7 @@ export function DesignerMaterialsPanel({
               {t('designer.revision.compare')}
             </button>
           ) : null}
+          {!collapsed ? (
           <button
             type="button"
             className="btn"
@@ -64,8 +85,11 @@ export function DesignerMaterialsPanel({
           >
             {t('designer.materials.viewLarge')}
           </button>
+          ) : null}
         </div>
       </header>
+      {collapsed ? null : (
+      <>
       <ul className="designer-materials__list">
         {materials.map((item) => (
           <li key={item.id}>
@@ -154,6 +178,8 @@ export function DesignerMaterialsPanel({
           <p>{t('designer.materials.placeholderHint')}</p>
         )}
       </div>
+      </>
+      )}
     </aside>
   );
 }

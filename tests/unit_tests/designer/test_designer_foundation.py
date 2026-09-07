@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from jiuwenswarm.server.runtime.designer.handlers.common import graph_prompt
 from jiuwenswarm.common.schema.designer_graph import (
     EDGE_KIND_SYNC,
     NODE_ROLE_CHARACTER_DESIGN,
@@ -494,6 +495,8 @@ def test_normalize_node_accepts_typed_config() -> None:
                 "prompt": "雨夜",
                 "inputs": ["n_src"],
                 "delegate": "handler",
+                "generate": {"prompt": "雨夜巷", "aspect_ratio": "16:9"},
+                "interaction_mode": "generate",
             },
         }
     )
@@ -501,6 +504,31 @@ def test_normalize_node_accepts_typed_config() -> None:
     assert node["config"]["prompt"] == "雨夜"
     assert node["config"]["inputs"] == ["n_src"]
     assert node["config"]["delegate"] == "handler"
+    assert node["config"]["generate"]["prompt"] == "雨夜巷"
+    assert node["config"]["interaction_mode"] == "generate"
+
+
+def test_graph_prompt_reads_generate_prompt() -> None:
+    node = normalize_node(
+        {
+            "id": "n_scene",
+            "type": NODE_TYPE_IMAGE,
+            "label": "场景",
+            "config": {
+                "role": "scene",
+                "generate": {"prompt": "霓虹雨巷"},
+            },
+        }
+    )
+    graph = {
+        "schema_version": "designer-execution-graph.v1",
+        "graph_id": "g1",
+        "project_id": "p1",
+        "title": "标题",
+        "nodes": [node],
+        "edges": [],
+    }
+    assert graph_prompt(graph, node) == "霓虹雨巷"
 
 
 def test_apply_graph_patch_upserts_and_removes() -> None:

@@ -54,7 +54,7 @@
         "role": "frame",
         "inputs": ["n_character", "n_scene", "n_storyboard"]
       },
-      "layout": { "x": 720, "y": 140, "width": 320, "height": 200 }
+      "layout": { "x": 720, "y": 140, "width": 280, "height": 160 }
     },
     {
       "id": "n_clip",
@@ -64,7 +64,7 @@
         "role": "clip",
         "inputs": ["n_character", "n_storyboard", "n_frame"]
       },
-      "layout": { "x": 1040, "y": 160, "width": 260, "height": 150 }
+      "layout": { "x": 1040, "y": 160, "width": 280, "height": 160 }
     }
   ],
   "edges": [

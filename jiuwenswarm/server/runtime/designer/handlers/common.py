@@ -28,6 +28,11 @@ def graph_prompt(graph: DesignerExecutionGraph, node: DesignerGraphNode | None =
         node_prompt = str(config.get("prompt") or "").strip()
         if node_prompt:
             return node_prompt
+        generate = config.get("generate")
+        if isinstance(generate, dict):
+            generate_prompt = str(generate.get("prompt") or "").strip()
+            if generate_prompt:
+                return generate_prompt
         if node_role(node) == NODE_ROLE_BRIEF:
             pass
     for candidate in graph.get("nodes") or []:

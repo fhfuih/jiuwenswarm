@@ -51,7 +51,34 @@ export const DESIGNER_NODE_CONFIG_KEYS = [
   'inputs',
   'delegate',
   'collaborate',
+  'generate',
+  'upload',
+  'edit',
+  'interaction_mode',
+  'materials',
 ] as const;
+
+export type DesignerMediaGenerateConfig = {
+  prompt?: string;
+  aspect_ratio?: string;
+  resolution?: string;
+  duration?: string;
+  has_audio?: boolean;
+  count?: number;
+};
+
+export type DesignerMediaUploadConfig = {
+  filename?: string;
+};
+
+export type DesignerMediaEditConfig = {
+  content?: string;
+};
+
+export type DesignerMediaMaterialSlot = {
+  id: string;
+  label?: string;
+};
 
 type DesignerRoleConfig<R extends DesignerNodeRole> = {
   role: R;
@@ -59,6 +86,11 @@ type DesignerRoleConfig<R extends DesignerNodeRole> = {
   inputs?: string[];
   delegate?: DesignerConfigDelegate;
   collaborate?: boolean;
+  generate?: DesignerMediaGenerateConfig;
+  upload?: DesignerMediaUploadConfig;
+  edit?: DesignerMediaEditConfig;
+  interaction_mode?: 'generate' | 'upload' | 'edit';
+  materials?: DesignerMediaMaterialSlot[];
 };
 
 export type DesignerNodeConfig =
@@ -74,6 +106,11 @@ export type DesignerNodeConfig =
       inputs?: string[];
       delegate?: string;
       collaborate?: boolean;
+      generate?: DesignerMediaGenerateConfig;
+      upload?: DesignerMediaUploadConfig;
+      edit?: DesignerMediaEditConfig;
+      interaction_mode?: string;
+      materials?: DesignerMediaMaterialSlot[];
     };
 
 export const DESIGNER_EDGE_KIND_DATA = 'data' as const;

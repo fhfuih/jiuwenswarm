@@ -233,6 +233,30 @@ test('collectPendingRevisions keeps accepted output and lists the candidate', ()
   assert.equal(materials[0].label, 'brief_old.md');
 });
 
+test('collectDesignerMaterials falls back to graph output_ref without a run', () => {
+  const materials = collectDesignerMaterials(
+    {
+      nodes: [
+        {
+          id: 'n_brief',
+          type: 'text',
+          label: 'Brief',
+          config: { role: 'brief' },
+          output_ref: {
+            kind: 'text',
+            uri: 'file:///C:/tmp/uploaded_brief.md',
+            label: 'uploaded_brief.md',
+          },
+        },
+      ],
+    },
+    null,
+  );
+  assert.equal(materials.length, 1);
+  assert.equal(materials[0].nodeId, 'n_brief');
+  assert.ok(materials[0].textUrl?.includes('uploaded_brief.md'));
+});
+
 test('markdown file URI becomes a file-content URL', () => {
   const uri = 'file:///C:/Users/TIAN/.jiuwenswarm/agent/workspace/designer_brief_run_n_brief.md';
   assert.equal(

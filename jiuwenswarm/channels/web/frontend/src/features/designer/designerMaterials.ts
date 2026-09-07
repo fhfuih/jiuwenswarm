@@ -139,10 +139,17 @@ export function collectDesignerMaterials(
   graph: DesignerExecutionGraph | null | undefined,
   run: DesignerExecutionRun | null | undefined,
 ): DesignerMaterial[] {
-  if (!graph || !run) return [];
-  return graph.nodes.flatMap((node) =>
-    materialsFromRefs(node, refsFromState(run.node_states?.[node.id], 'accepted'), node.id),
-  );
+  if (!graph) return [];
+  return graph.nodes.flatMap((node) => {
+    const fromRun = refsFromState(run?.node_states?.[node.id], 'accepted');
+    const refs =
+      fromRun.length > 0
+        ? fromRun
+        : node.output_ref?.uri
+          ? [node.output_ref]
+          : [];
+    return materialsFromRefs(node, refs, node.id);
+  });
 }
 
 const PREFERRED_KINDS = ['video', 'image', 'audio', 'table', 'text'] as const;

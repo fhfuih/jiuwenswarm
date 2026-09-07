@@ -10,6 +10,7 @@ import {
 type DesignerMaterialViewerProps = {
   materials: DesignerMaterial[];
   selectedId: string;
+  startEditKey?: number;
   onSelect: (id: string) => void;
   onClose: () => void;
 };
@@ -24,6 +25,7 @@ export function viewableDesignerMaterials(materials: DesignerMaterial[]): Design
 export function DesignerMaterialViewer({
   materials,
   selectedId,
+  startEditKey = 0,
   onSelect,
   onClose,
 }: DesignerMaterialViewerProps) {
@@ -42,6 +44,11 @@ export function DesignerMaterialViewer({
   useEffect(() => {
     setEditKey(0);
   }, [current?.id]);
+
+  useEffect(() => {
+    if (!startEditKey) return;
+    setEditKey((value) => value + 1);
+  }, [startEditKey]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

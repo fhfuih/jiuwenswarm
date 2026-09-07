@@ -117,6 +117,40 @@
   gap: 8px;
 }
 
+.designer-materials__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.designer-materials__toggle:hover {
+  background: var(--color-action-secondary);
+  color: var(--color-text-primary);
+}
+
+.designer-page__materials--collapsed .designer-materials,
+.designer-materials[data-collapsed='true'] {
+  height: 100%;
+}
+
+.designer-page__materials--collapsed .designer-materials__header {
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.designer-page__materials--collapsed .designer-materials__header-actions {
+  justify-content: center;
+}
+
 .designer-materials__header h2 {
   margin: 0;
   font-size: 14px;

@@ -5,6 +5,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  DESIGNER_NODE_HEIGHT,
+  DESIGNER_NODE_WIDTH,
   fromReactFlowGraph,
   toReactFlowGraph,
 } from '../node_modules/.cache/designer-graph-adapter/designerGraphAdapter.mjs';
@@ -22,6 +24,9 @@ test('toReactFlowGraph maps domain nodes and edges', () => {
   assert.deepEqual(brief.position, { x: 40, y: 120 });
   assert.equal(brief.type, 'text');
   assert.equal(brief.data.label, '项目 brief');
+  for (const node of view.nodes) {
+    assert.deepEqual(node.style, { width: DESIGNER_NODE_WIDTH, height: DESIGNER_NODE_HEIGHT });
+  }
 });
 
 test('fromReactFlowGraph preserves domain semantics while updating layout', () => {
@@ -45,6 +50,20 @@ test('fromReactFlowGraph preserves domain semantics while updating layout', () =
     'n_character',
   );
   assert.equal(merged.edges.find((edge) => edge.id === 'e_character_storyboard')?.kind, 'sync');
+});
+
+test('toReactFlowGraph ignores stored node sizes so cards stay uniform', () => {
+  const mismatched = {
+    ...fixture,
+    nodes: fixture.nodes.map((node, index) => ({
+      ...node,
+      layout: { ...node.layout, width: 200 + index * 40, height: 100 + index * 20 },
+    })),
+  };
+  const view = toReactFlowGraph(mismatched);
+  for (const node of view.nodes) {
+    assert.deepEqual(node.style, { width: DESIGNER_NODE_WIDTH, height: DESIGNER_NODE_HEIGHT });
+  }
 });
 
 test('toReactFlowGraph keeps sync edge kind', () => {

@@ -53,7 +53,7 @@ import { queueOrAddGoalObjectiveMessage } from './features/goalPendingObjectiveB
 import { applyWorkflowRunsToSession } from './features/workflowGraph/loadWorkflowRuns';
 import { extractWorkflowRunsFromMetadata } from './features/workflowGraph/workflowGraphModel';
 import { extractWorkflowControlsFromMetadata } from './features/workflowGraph/workflowControlModel';
-import { DesignerCanvasPage } from './features/designer/DesignerCanvasPage';
+import { DesignerPage } from './features/designer/components/DesignerPage';
 import { LoginPage } from './features/auth/LoginPage';
 import { LogoutButton } from './features/auth/LogoutButton';
 import {
@@ -3008,7 +3008,7 @@ function AppContent({
         )}
         {activeNav === 'designer' && (
           <div className="app-section">
-            <DesignerCanvasPage />
+            <DesignerPage />
           </div>
         )}
         {activeNav === 'agents' && (

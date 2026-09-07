@@ -68,6 +68,11 @@ CONFIG_KEY_PROMPT = "prompt"
 CONFIG_KEY_INPUTS = "inputs"
 CONFIG_KEY_DELEGATE = "delegate"
 CONFIG_KEY_COLLABORATE = "collaborate"
+CONFIG_KEY_GENERATE = "generate"
+CONFIG_KEY_UPLOAD = "upload"
+CONFIG_KEY_EDIT = "edit"
+CONFIG_KEY_INTERACTION_MODE = "interaction_mode"
+CONFIG_KEY_MATERIALS = "materials"
 
 CONFIG_KEYS: frozenset[str] = frozenset(
     {
@@ -76,8 +81,15 @@ CONFIG_KEYS: frozenset[str] = frozenset(
         CONFIG_KEY_INPUTS,
         CONFIG_KEY_DELEGATE,
         CONFIG_KEY_COLLABORATE,
+        CONFIG_KEY_GENERATE,
+        CONFIG_KEY_UPLOAD,
+        CONFIG_KEY_EDIT,
+        CONFIG_KEY_INTERACTION_MODE,
+        CONFIG_KEY_MATERIALS,
     }
 )
+
+CONFIG_INTERACTION_MODES: frozenset[str] = frozenset({"generate", "upload", "edit"})
 
 CONFIG_DELEGATE_HANDLER = "handler"
 CONFIG_DELEGATE_SUBAGENT = "subagent"
@@ -188,6 +200,11 @@ class DesignerNodeConfig(TypedDict, total=False):
     inputs: list[str]
     delegate: str
     collaborate: bool
+    generate: dict[str, Any]
+    upload: dict[str, Any]
+    edit: dict[str, Any]
+    interaction_mode: str
+    materials: list[Any]
 
 
 class DesignerGraphPatch(TypedDict, total=False):
@@ -342,6 +359,28 @@ def normalize_node_config(raw: Any) -> DesignerNodeConfig:
         if not isinstance(collaborate, bool):
             raise DesignerGraphValidationError("node.config.collaborate must be a boolean")
         config[CONFIG_KEY_COLLABORATE] = collaborate
+    for object_key in (CONFIG_KEY_GENERATE, CONFIG_KEY_UPLOAD, CONFIG_KEY_EDIT):
+        value = raw.get(object_key)
+        if value is None:
+            continue
+        if not isinstance(value, dict):
+            raise DesignerGraphValidationError(f"node.config.{object_key} must be an object")
+        config[object_key] = dict(value)
+    interaction_mode = raw.get(CONFIG_KEY_INTERACTION_MODE)
+    if interaction_mode is not None:
+        if (
+            not isinstance(interaction_mode, str)
+            or interaction_mode.strip() not in CONFIG_INTERACTION_MODES
+        ):
+            raise DesignerGraphValidationError(
+                "node.config.interaction_mode must be generate, upload, or edit"
+            )
+        config[CONFIG_KEY_INTERACTION_MODE] = interaction_mode.strip()
+    materials = raw.get(CONFIG_KEY_MATERIALS)
+    if materials is not None:
+        if not isinstance(materials, list):
+            raise DesignerGraphValidationError("node.config.materials must be an array")
+        config[CONFIG_KEY_MATERIALS] = list(materials)
     return config  # type: ignore[return-value]
 
 
@@ -782,14 +821,14 @@ def build_bootstrap_graph(
             "type": NODE_TYPE_IMAGE,
             "label": "视频帧",
             "config": {"role": NODE_ROLE_FRAME, "inputs": ["n_character", "n_scene", "n_storyboard"]},
-            "layout": {"x": 720, "y": 140, "width": 320, "height": 200},
+            "layout": {"x": 720, "y": 140, "width": 280, "height": 160},
         },
         {
             "id": "n_clip",
             "type": NODE_TYPE_VIDEO,
             "label": "视频片段",
             "config": {"role": NODE_ROLE_CLIP, "inputs": ["n_character", "n_storyboard", "n_frame"]},
-            "layout": {"x": 1040, "y": 160, "width": 260, "height": 150},
+            "layout": {"x": 1040, "y": 160, "width": 280, "height": 160},
         },
     ]
     edges: list[DesignerGraphEdge] = [

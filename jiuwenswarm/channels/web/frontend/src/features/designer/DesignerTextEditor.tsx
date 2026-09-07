@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fileUriToLocalPath } from './designerAssetUrl';
+import { saveDesignerTextFile } from './designerAssetUrl';
 import {
   DESIGNER_MATERIAL_SAVED_EVENT,
   isEditableDesignerMaterial,
@@ -14,20 +14,6 @@ type DesignerTextEditorProps = {
   startEditKey?: number;
   onEditingChange?: (editing: boolean) => void;
 };
-
-async function saveDesignerMarkdown(uri: string, content: string): Promise<void> {
-  const filePath = fileUriToLocalPath(uri);
-  if (!filePath) throw new Error('missing_file_path');
-  const response = await fetch('/file-api/file-content', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ path: filePath, content }),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail.slice(0, 160) || `HTTP ${response.status}`);
-  }
-}
 
 export function DesignerTextEditor({
   material,
@@ -103,7 +89,7 @@ export function DesignerTextEditor({
     setSaving(true);
     setError('');
     try {
-      await saveDesignerMarkdown(material.uri, draft);
+      await saveDesignerTextFile(material.uri, draft);
       setText(draft);
       setEditing(false);
       setReloadAt(Date.now());
