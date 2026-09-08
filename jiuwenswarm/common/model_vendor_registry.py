@@ -129,6 +129,29 @@ DASHSCOPE_VIDEO_GEN_MODELS: tuple[str, ...] = (
     "wan2.6-r2v-flash",
 )
 
+# MiniMax official video generation (V2 / Hailuo-03). Chat uses /v1; video uses host root.
+MINIMAX_VIDEO_GEN_API_BASE = "https://api.minimaxi.com"
+MINIMAX_VIDEO_GEN_MODELS: tuple[str, ...] = (
+    "MiniMax-H3",
+    "MiniMax-H3-Max",
+)
+
+# MiniMax official image generation (POST /v1/image_generation).
+MINIMAX_IMAGE_GEN_API_BASE = "https://api.minimaxi.com"
+MINIMAX_IMAGE_GEN_MODELS: tuple[str, ...] = (
+    "image-01",
+    "image-01-live",
+)
+
+# 火山方舟 Seedance video generation (contents/generations/tasks).
+VOLCENGINE_VIDEO_GEN_API_BASE = "https://ark.cn-beijing.volces.com/api/v3"
+VOLCENGINE_VIDEO_GEN_MODELS: tuple[str, ...] = (
+    "doubao-seedance-2-5-260628",
+    "doubao-seedance-2-0-260128",
+    "doubao-seedance-2-0-fast-260128",
+    "doubao-seedance-2-0-mini-260615",
+)
+
 # DashScope image generation.
 DASHSCOPE_IMAGE_GEN_API_BASE = "https://dashscope.aliyuncs.com/api/v1"
 DASHSCOPE_IMAGE_GEN_MODELS: tuple[str, ...] = (
@@ -137,6 +160,15 @@ DASHSCOPE_IMAGE_GEN_MODELS: tuple[str, ...] = (
     "wan2.7-image",
     "wan2.7-image-pro",
     "z-image-turbo",
+)
+
+# 火山方舟 Seedream image generation (images/generations).
+VOLCENGINE_IMAGE_GEN_API_BASE = "https://ark.cn-beijing.volces.com/api/v3"
+VOLCENGINE_IMAGE_GEN_MODELS: tuple[str, ...] = (
+    "doubao-seedream-5-0-260128",
+    "doubao-seedream-5-0-pro-260628",
+    "doubao-seedream-4-5-251128",
+    "doubao-seedream-4-0-250828",
 )
 
 
@@ -184,6 +216,7 @@ _PRESETS: list[VendorPreset] = [
         plan=PlanKind.TOKEN_PLAN,
         client_provider="OpenAI",
         api_base="https://api.minimaxi.com/v1",
+        endpoint_profile="minimax",
         default_model="MiniMax-M2",
         model_options=(
             "MiniMax-M3",
@@ -196,6 +229,12 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://api.minimaxi.com/v1/models",
         models_needs_key=True,
         anthropic_base="https://api.minimaxi.com/anthropic",
+        video_gen_default_model="MiniMax-H3",
+        video_gen_model_options=MINIMAX_VIDEO_GEN_MODELS,
+        video_gen_api_base=MINIMAX_VIDEO_GEN_API_BASE,
+        image_gen_default_model="image-01",
+        image_gen_model_options=MINIMAX_IMAGE_GEN_MODELS,
+        image_gen_api_base=MINIMAX_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="maas",
@@ -312,6 +351,7 @@ _PRESETS: list[VendorPreset] = [
         plan=PlanKind.CODING_PLAN,
         client_provider="OpenAI",
         api_base="https://ark.cn-beijing.volces.com/api/coding/v3",
+        endpoint_profile="volcengine",
         default_model="seed-2.0-mini",
         model_options=("seed-2.0-mini", "seed-2.0-lite", "seed-1.6", "seed-1.6-flash"),
         icon_key="doubao",
@@ -319,6 +359,12 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://ark.cn-beijing.volces.com/api/coding/v3/models",
         models_needs_key=True,
         anthropic_base="https://ark.cn-beijing.volces.com/api/coding",
+        video_gen_default_model="doubao-seedance-2-5-260628",
+        video_gen_model_options=VOLCENGINE_VIDEO_GEN_MODELS,
+        video_gen_api_base=VOLCENGINE_VIDEO_GEN_API_BASE,
+        image_gen_default_model="doubao-seedream-5-0-260128",
+        image_gen_model_options=VOLCENGINE_IMAGE_GEN_MODELS,
+        image_gen_api_base=VOLCENGINE_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="baidu",
@@ -443,6 +489,7 @@ _PRESETS: list[VendorPreset] = [
         plan=PlanKind.CUSTOM_API,
         client_provider="OpenAI",
         api_base="https://api.minimaxi.com/v1",
+        endpoint_profile="minimax",
         default_model="MiniMax-M3",
         model_options=(
             "MiniMax-M3",
@@ -456,6 +503,12 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://api.minimaxi.com/v1/models",
         models_needs_key=True,
         anthropic_base="https://api.minimaxi.com/anthropic",
+        video_gen_default_model="MiniMax-H3",
+        video_gen_model_options=MINIMAX_VIDEO_GEN_MODELS,
+        video_gen_api_base=MINIMAX_VIDEO_GEN_API_BASE,
+        image_gen_default_model="image-01",
+        image_gen_model_options=MINIMAX_IMAGE_GEN_MODELS,
+        image_gen_api_base=MINIMAX_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="maas",
@@ -485,6 +538,7 @@ _PRESETS: list[VendorPreset] = [
         plan=PlanKind.CUSTOM_API,
         client_provider="OpenAI",
         api_base="https://ark.cn-beijing.volces.com/api/v3",
+        endpoint_profile="volcengine",
         default_model="seed-2.0-mini",
         model_options=(
             "seed-2.0-mini",
@@ -497,6 +551,12 @@ _PRESETS: list[VendorPreset] = [
         models_endpoint="https://ark.cn-beijing.volces.com/api/v3/models",
         models_needs_key=True,
         anthropic_base="https://ark.cn-beijing.volces.com/api/compatible",
+        video_gen_default_model="doubao-seedance-2-5-260628",
+        video_gen_model_options=VOLCENGINE_VIDEO_GEN_MODELS,
+        video_gen_api_base=VOLCENGINE_VIDEO_GEN_API_BASE,
+        image_gen_default_model="doubao-seedream-5-0-260128",
+        image_gen_model_options=VOLCENGINE_IMAGE_GEN_MODELS,
+        image_gen_api_base=VOLCENGINE_IMAGE_GEN_API_BASE,
     ),
     VendorPreset(
         vendor_key="baidu",
