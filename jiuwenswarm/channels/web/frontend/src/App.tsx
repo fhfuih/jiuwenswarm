@@ -27,6 +27,7 @@ import {
 } from './features/settings/settingsNavigation';
 import { ConnectorMarketPanel } from './components/ConnectorMarket';
 import { DesignerPage } from './features/designer/components/DesignerPage';
+import { useDesignArmedStore } from './features/designer/designArmedStore';
 import { launchDesignerFromTask } from './features/designer/designerEntry';
 import {
   ShareImageDocument,
@@ -2361,8 +2362,41 @@ function AppContent({
     useSessionStore.getState().setAgentSelectionIntent(NEW_CONVERSATION_ID, { kind: 'select', id: agentId });
   }, [enterNewConversation]);
 
+  const handleLaunchDesign = useCallback(
+    (prompt: string) => {
+      const workspace = useWorkspaceStore.getState();
+      const workContext = getWorkContextForSession(sessionIdRef.current || NEW_CONVERSATION_ID);
+      void launchDesignerFromTask({
+        prompt,
+        projectId: workContext.project_id || sessionProject?.project_id,
+        projectDir: workContext.project_dir || sessionProject?.project_dir,
+        workMode: workspace.workMode === 'code' ? 'code' : 'work',
+        onNavigateToDesign: () => {
+          setActiveNav('design');
+          setTeamAreaExpanded(false);
+          setToolPanelHidden(true);
+        },
+        thinkingText: t('designer.chat.thinking'),
+        doneText: t('designer.chat.bootstrapDone'),
+        errorText: t('designer.chat.bootstrapError'),
+      });
+    },
+    [sessionProject?.project_dir, sessionProject?.project_id, setTeamAreaExpanded, setToolPanelHidden, t],
+  );
+
   const handleSendMessage = useCallback(async (content: string, mediaItems?: MediaItem[]) => {
     const currentSessionId = sessionIdRef.current;
+    const designSid = currentSessionId || NEW_CONVERSATION_ID;
+    const trimmedPrompt = content.trim();
+    if (trimmedPrompt && useDesignArmedStore.getState().isArmed(designSid)) {
+      if (mediaItems && mediaItems.length > 0) {
+        window.alert(t('designer.attachmentsBlocked'));
+        return;
+      }
+      useDesignArmedStore.getState().consumeArmed(designSid);
+      handleLaunchDesign(trimmedPrompt);
+      return;
+    }
     if (!currentSessionId) return;
     if (currentSessionId === NEW_CONVERSATION_ID) {
       const persistCommand = parsePersistSessionCommand(content);
@@ -2516,7 +2550,7 @@ function AppContent({
     } else {
       useChatStore.getState().setInputValue(currentSessionId, content);
     }
-  }, [disposeInFlightHistoryHandles, mode, navigate, request, sendMessage, setGoalObjective, t]);
+  }, [disposeInFlightHistoryHandles, handleLaunchDesign, mode, navigate, request, sendMessage, setGoalObjective, t]);
 
   const handlePersistMedia = useCallback((content: string, mediaItems: MediaItem[]) => {
     const currentSessionId = sessionIdRef.current;
@@ -2872,24 +2906,6 @@ function AppContent({
       }
     },
     [activeNav, isMobile, modelSetupGuideStep, setSingleAgentPanelExpanded, setTeamAreaExpanded, setToolPanelHidden, t],
-  );
-
-  const handleLaunchDesign = useCallback(
-    (prompt: string) => {
-      const workspace = useWorkspaceStore.getState();
-      const workContext = getWorkContextForSession(sessionId);
-      void launchDesignerFromTask({
-        prompt,
-        projectId: workContext.project_id || sessionProject?.project_id,
-        projectDir: workContext.project_dir || sessionProject?.project_dir,
-        workMode: workspace.workMode === 'code' ? 'code' : 'work',
-        onNavigateToDesign: () => handleNavigate('design'),
-        thinkingText: t('designer.chat.thinking'),
-        doneText: t('designer.chat.bootstrapDone'),
-        errorText: t('designer.chat.bootstrapError'),
-      });
-    },
-    [handleNavigate, sessionId, sessionProject?.project_dir, sessionProject?.project_id, t],
   );
 
   const skipModelSetupGuide = useCallback(() => {

@@ -89,6 +89,8 @@ import { useDesignArmedStore } from '../../features/designer/designArmedStore';
 const MENU_GAP = 10;
 /** 智能体选择列表单行高度（与 ChatPanel.css 的 .chat-agent-picker__item min-height 一致） */
 const AGENT_PICKER_ROW_HEIGHT = 40;
+/** 「+」菜单含文件/技能/计划/目标/设计。欢迎页若按 200px 判断向下展开，底部「设计」会被视口裁掉。 */
+const ATTACH_MENU_ESTIMATED_HEIGHT = 360;
 
 function resolveMenuDirection(anchorBottom: number, menuHeight: number) {
   const spaceBelow = window.innerHeight - anchorBottom - MENU_GAP;
@@ -760,7 +762,8 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
   const hasHistory = (currentSession?.message_count ?? 0) > 0 || loadedMsgLen > 0;
   const goalArmed = useGoalStore((s) => s.runtimes[activeSessionId ?? '']?.armed ?? false);
   const currentGoal = useGoalStore((s) => s.runtimes[activeSessionId ?? '']?.goal ?? null);
-  const designArmed = useDesignArmedStore((s) => s.runtimes[activeSessionId ?? '']?.armed ?? false);
+  const designSessionId = activeSessionId ?? NEW_CONVERSATION_ID;
+  const designArmed = useDesignArmedStore((s) => s.runtimes[designSessionId]?.armed ?? false);
   // 目标 active 时普通发送改走排队，而不是文档 §5.1 原定的 input_mode:'steer' 实时插话——
   // 用户明确要求改成这个语义（steer 目前收不到任何反馈，体验上等同于消息发出去石沉大海，
   // 见 backend-requests.md #1）。走排队后消息复用现有的通用队列机制，行为和普通排队一致。
@@ -1732,17 +1735,14 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
     }
 
     const sid = useChatStore.getState().activeSessionId;
-    if (designArmed && trimmedBase && onLaunchDesign) {
+    const launchDesignSid = sid ?? NEW_CONVERSATION_ID;
+    if (trimmedBase && onLaunchDesign && useDesignArmedStore.getState().isArmed(launchDesignSid)) {
       if (readyMediaItems.length > 0) {
         pushAttachmentAlert(t('designer.attachmentsBlocked'));
         return;
       }
-      if (sid) {
-        useDesignArmedStore.getState().setArmed(sid, false);
-      }
-      if (sid) {
-        useChatStore.getState().setInputValue(sid, '');
-      }
+      useDesignArmedStore.getState().consumeArmed(launchDesignSid);
+      useChatStore.getState().setInputValue(launchDesignSid, '');
       setPendingVoiceText('');
       setAttachments([]);
       setAttachmentAlerts([]);
@@ -2922,7 +2922,7 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                 if (!attachMenuOpen && attachMenuRef.current) {
                   const rect = attachMenuRef.current.getBoundingClientRect();
                   setAttachMenuAnchor(rect);
-                  setAttachMenuDirection(window.innerHeight - rect.bottom >= 200 ? 'down' : 'up');
+                  setAttachMenuDirection(resolveMenuDirection(rect.bottom, ATTACH_MENU_ESTIMATED_HEIGHT));
                 }
                setAttachMenuOpen((open) => !open);
                setExtensionPanelOpen(false);
@@ -3161,6 +3161,36 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                   </div>
                 )}
                 <div className="chat-mode-select__divider" role="separator" />
+                {canUseDesignMenu && (() => {
+                  const toggleDesign = (next: boolean) => {
+                    const sid = activeSessionId ?? NEW_CONVERSATION_ID;
+                    if (next) {
+                      useGoalStore.getState().setArmed(sid, false);
+                      if (planActive) {
+                        usePlanStore.getState().setActive(sid, false);
+                      }
+                      useDesignArmedStore.getState().setArmed(sid, true);
+                    } else {
+                      useDesignArmedStore.getState().setArmed(sid, false);
+                    }
+                  };
+                  return (
+                    <div
+                      className="chat-mode-select__option"
+                      role="menuitem"
+                      data-testid="chat-panel-input-attach-menu-design"
+                      onClick={() => toggleDesign(!designArmed)}
+                    >
+                      <span className="chat-mode-select__option-main">
+                        <span className="chat-mode-select__icon" aria-hidden="true">
+                          <LayoutTemplate size={16} />
+                        </span>
+                        <span className="chat-mode-select__label">{t('designer.toggleLabel')}</span>
+                      </span>
+                      <Switch checked={designArmed} onChange={toggleDesign} />
+                    </div>
+                  );
+                })()}
                 {canUsePlanMenu && (() => {
                   // 对称地：已有未完成目标时不能选计划；对话进行中（isProcessing）时也先禁掉，
                   // 避免在当前这轮还没结束时又叠加切一次模式。这条"打开"方向的限制沿用原逻辑；
@@ -3187,7 +3217,7 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                       // 走到这里 hasUnfinishedGoal 一定是 false，goalArmed 为 true 时只可能是
                       // "刚选了目标、还没发消息"的未提交态，顶掉换成 Plan。
                       useGoalStore.getState().setArmed(activeSessionId, false);
-                      useDesignArmedStore.getState().setArmed(activeSessionId, false);
+                      useDesignArmedStore.getState().setArmed(activeSessionId ?? NEW_CONVERSATION_ID, false);
                       // explicitEntry：这是用户手动打开开关，下一条 Plan 消息要带
                       // plan_entry_source，否则会被后端的防重入闸门拦下。
                       usePlanStore.getState().setActive(activeSessionId, true, { explicitEntry: true });
@@ -3292,7 +3322,7 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                       if (planActive) {
                         usePlanStore.getState().setActive(activeSessionId, false);
                       }
-                      useDesignArmedStore.getState().setArmed(activeSessionId, false);
+                      useDesignArmedStore.getState().setArmed(activeSessionId ?? NEW_CONVERSATION_ID, false);
                       useGoalStore.getState().setArmed(activeSessionId, true);
                     } else {
                       if (currentGoal) {
@@ -3320,36 +3350,6 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                         <span className="chat-mode-select__label">{t('goal.toggleLabel')}</span>
                       </span>
                       <Switch checked={goalChecked} disabled={goalDisabled} onChange={toggleGoal} />
-                    </div>
-                  );
-                })()}
-                {canUseDesignMenu && (() => {
-                  const toggleDesign = (next: boolean) => {
-                    if (!activeSessionId) return;
-                    if (next) {
-                      useGoalStore.getState().setArmed(activeSessionId, false);
-                      if (planActive) {
-                        usePlanStore.getState().setActive(activeSessionId, false);
-                      }
-                      useDesignArmedStore.getState().setArmed(activeSessionId, true);
-                    } else {
-                      useDesignArmedStore.getState().setArmed(activeSessionId, false);
-                    }
-                  };
-                  return (
-                    <div
-                      className="chat-mode-select__option"
-                      role="menuitem"
-                      data-testid="chat-panel-input-attach-menu-design"
-                      onClick={() => toggleDesign(!designArmed)}
-                    >
-                      <span className="chat-mode-select__option-main">
-                        <span className="chat-mode-select__icon" aria-hidden="true">
-                          <LayoutTemplate size={16} />
-                        </span>
-                        <span className="chat-mode-select__label">{t('designer.toggleLabel')}</span>
-                      </span>
-                      <Switch checked={designArmed} onChange={toggleDesign} />
                     </div>
                   );
                 })()}
@@ -3585,8 +3585,7 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(function In
                 data-testid="chat-panel-design-tag-close"
                 title={t('designer.closeTag')}
                 onClick={() => {
-                  if (!activeSessionId) return;
-                  useDesignArmedStore.getState().setArmed(activeSessionId, false);
+                  useDesignArmedStore.getState().setArmed(activeSessionId ?? NEW_CONVERSATION_ID, false);
                 }}
               >
                 <X size={11} strokeWidth={2.5} />
