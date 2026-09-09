@@ -58,6 +58,7 @@ dependencies = [
     "tree-sitter-bash>=0.25.0,<0.26.0",
     "playwright>=1.40,<2",
     "uv>=0.4.0,<0.13",
+    "imageio-ffmpeg>=0.5.1,<1",
 ]
 
 [project.optional-dependencies]
