@@ -1,10 +1,196 @@
 **JiuwenSwarm extension to support multi-modal creation/design scenarios and designer-users.**
 
-This README is intentionally broken to mark WIP state.
+This branch is always (re-)based on `img-vid-gen-inline` and/or other branches that support image and video generation provider configuration.
 
-This README will be restored once this branch is ready as a PR.
+-----------
 
-This branch is always (re-)based on `img-vid-gen-inline` and/or other branches that supports image and video generation provider configuration.
+## 本版已澄清的三个问题 / Three questions clarified in this PR
+
+下面按当前 `design` 实现写实，不写目标态。画布上的连线在代码里叫 `edges`，产品里常叫 trajectory。  
+The answers below match the current `design` implementation, not a future target. Canvas lines are `edges` in code; the product often calls them trajectories.
+
+---
+
+### 1. Graph 中的 trajectory 是否具有输入 / 输出含义？  
+### 1. Do graph trajectories carry input / output meaning?
+
+**中文**
+
+**有调度含义，没有通用的“沿边传物料”语义。**
+
+- 每条边是 `source → target`，`kind` 只有两种：
+  - `data`：上游完成，下游才可跑。执行器读 `data_predecessors()`，节点一旦就绪就开跑，不必等同一列其它节点。
+  - `sync`：屏障，不是 payload。例如 Character 与 Storyboard 的 Align 边：两边必须都完成，依赖它们的节点才开跑。
+- 节点真正吃到的输入，**不是**沿边遍历，而是按 **role / shot_index** 去读 `run.node_states[*].output_ref`：
+  - Brief 文本、Storyboard 表、Character / Scene 图、对应镜的 Keyframe。
+  - Clip 参考图顺序：本镜关键帧 → 角色图 → 场景图，外加分镜 markdown `file`。
+- `config.inputs` 在 bootstrap / expand 时会写成与 `data` 边一致，但 **handler 执行时不读这个字段**。
+- 因此：连线表达的是“谁先谁后、谁依赖谁完成”；字节级 I/O 是“按角色取产物”。改一条自定义边，只要角色还在图里，handler 仍可能按角色取料，而不会改走那条边。
+- Keyframe 之间 **没有** `n_frame_i → n_frame_{i+1}` 边，后几镜也不把上一镜当 i2i 参考（纯文生图，避免撞构图）。Clip 只等 **本镜** Keyframe；Keyframe 2/3 完成后，Clip 2/3 可以马上并行，不必等 Keyframe 1。
+
+**English**
+
+**Trajectories gate scheduling. They are not a generic payload bus.**
+
+- Each edge is `source → target` with two kinds:
+  - `data`: the target stays pending until every data predecessor (and that predecessor's `sync` group) is completed. The executor starts a node as soon as it is ready; it does not wait for the rest of the column.
+  - `sync`: a barrier, not a payload. Example: Character ↔ Storyboard Align. Dependents wait until both members finish.
+- Actual inputs are **not** walked along edges. Handlers load artifacts by **role / shot_index** from `run.node_states[*].output_ref`:
+  - Brief text, Storyboard table, Character / Scene stills, the matching Keyframe.
+  - Clip `reference_image` order: this shot's keyframe → character → scene, plus the storyboard markdown `file`.
+- `config.inputs` is kept in sync with `data` edges at bootstrap / expand time, but **handlers never read it at execute time**.
+- So the line on the canvas means “this node may not start until that node finished.” Byte-level I/O means “fetch the artifact of this role.” Drawing a custom edge does not reroute handler inputs if the roles still exist.
+- Keyframes are **not** chained. There is no `n_frame_i → n_frame_{i+1}` edge, and later shots still do **not** use the previous still as an i2i reference (text-to-image, so they do not clone shot 1). A clip waits only on **its** keyframe, so Clip 2 and Clip 3 can start as soon as Keyframe 2 and 3 finish, even if Keyframe 1 is still running.
+
+---
+
+### 2. E2A 协议的调用和监听逻辑？  
+### 2. How does the E2A protocol call and listen?
+
+**中文**
+
+E2A（Everything-to-Agent）是 **Gateway ↔ AgentServer** 的统一信封，不是画布节点互相同步用的协议。规范见 `docs/zh/E2A-protocol.md`。Designer 的 RPC 走 unary E2A；运行态靠 **push** 回听。
+
+**调用（浏览器 → AgentServer）**
+
+```
+Browser  webRequest('designer.graph.*' | 'designer.run.*')
+    → Gateway WebSocket handler
+    → proxy_unary_request()
+    → e2a_from_agent_fields(...)     # E2AEnvelope
+         method  = designer.graph.get / designer.run.start / …
+         params  = 业务字典（graph_id、prompt、node_id…）
+    → AgentServerClient（WebSocket）
+    → DesignerAdapter.handle()
+    → GraphStore / GraphExecutor
+    → 同一条 unary 连接把 AgentResponse 折回 Gateway
+    → channel.send_response 给浏览器
+```
+
+本地单用户若 AgentServer 暂不可达，Gateway 可能走 legacy 共享目录，直接跑同一套 `DesignerAdapter`（不经远程 E2A）。AgentOS / 远程 client **没有**这条 fallback。
+
+**监听（AgentServer → 浏览器）**
+
+`designer.run.start` 的 unary 只返回当时的 run 快照。节点推进是异步的，靠 push：
+
+```
+GraphExecutor._publish(run, node_id)
+    → DesignerAdapter on_update / on_graph_update
+    → WebSocketGatewayPushTransport.send_push
+         event_type = designer.run.updated
+                      designer.node.updated
+                      designer.graph.updated
+    → Gateway 旁路投递到浏览器 WebSocket（不占用原 RPC 等待队列）
+    → bindDesignerRuntime():
+         webClient.on('designer.run.updated' | 'designer.node.updated' | 'designer.graph.updated')
+```
+
+不要把下面两套和 E2A 混在一起：
+
+| 名称 | 实际是什么 | 是否 E2A |
+|------|------------|----------|
+| Designer RPC | `designer.graph.*` / `designer.run.*` | 是，unary 信封 |
+| Designer 运行态 | 上述三种 `event_type` push | 是，下行 push |
+| Designer A2A collab | 进程内 `DesignerA2ABus`（角色卡对齐） | **否** |
+| 网关入站 A2A Channel | 外部 Agent → 聊天入口 | **否**（与画布无关） |
+
+**English**
+
+E2A (Everything-to-Agent) is the **Gateway ↔ AgentServer** envelope, not the protocol nodes use to talk to each other. Spec: `docs/en/E2A-protocol.md`. Designer RPCs are unary E2A. Runtime progress is a **push** listen path.
+
+**Call (browser → AgentServer)**
+
+```
+Browser  webRequest('designer.graph.*' | 'designer.run.*')
+    → Gateway WebSocket handler
+    → proxy_unary_request()
+    → e2a_from_agent_fields(...)     # E2AEnvelope
+         method  = designer.graph.get / designer.run.start / …
+         params  = business dict (graph_id, prompt, node_id, …)
+    → AgentServerClient (WebSocket)
+    → DesignerAdapter.handle()
+    → GraphStore / GraphExecutor
+    → AgentResponse folds back on the same unary hop
+    → channel.send_response to the browser
+```
+
+On a local single-user install, if AgentServer is down, Gateway may run the same `DesignerAdapter` against the shared `~/.jiuwenswarm` directory (no remote E2A). AgentOS / remote clients **do not** get that fallback.
+
+**Listen (AgentServer → browser)**
+
+The unary `designer.run.start` reply is only the run snapshot at start time. Node progress is async and pushed:
+
+```
+GraphExecutor._publish(run, node_id)
+    → DesignerAdapter on_update / on_graph_update
+    → WebSocketGatewayPushTransport.send_push
+         event_type = designer.run.updated
+                      designer.node.updated
+                      designer.graph.updated
+    → Gateway delivers on the browser WebSocket (bypass; not the original RPC waiter)
+    → bindDesignerRuntime():
+         webClient.on('designer.run.updated' | 'designer.node.updated' | 'designer.graph.updated')
+```
+
+Do not confuse these with E2A:
+
+| Name | What it actually is | E2A? |
+|------|---------------------|------|
+| Designer RPC | `designer.graph.*` / `designer.run.*` | Yes, unary envelope |
+| Designer runtime | the three `event_type` pushes above | Yes, downlink push |
+| Designer A2A collab | in-process `DesignerA2ABus` (role-card alignment) | **No** |
+| Inbound Gateway A2A Channel | external Agent → chat entry | **No** (not the canvas) |
+
+---
+
+### 3. 当前节点的 Agent 是否实际参与作用？作用机制如何？  
+### 3. Does the per-node Agent actually participate, and how?
+
+**中文**
+
+**默认 Play 管线里，节点 DeepAgent 不跑。真正干活的是 role handler。**
+
+机制分三层，不要看成“每个节点一个独立 Agent 在对话”：
+
+1. **调度**  
+   UI `designer.graph.bootstrap` 会调用 `_prefer_handler_pipeline()`，给所有未写 `delegate` 的节点打上 `delegate: "handler"`。于是 `graph_uses_agent_scheduler()` 为假，走 `_execute_wave_run`：按 `data`/`sync` 判断就绪，节点一就绪就 `create_task`，不必等同一列其它节点结束。
+
+2. **节点执行（默认）**  
+   `_run_single_node` 见 `delegate != handler` 才进 `NodeAgentHost`。当前 bootstrap 图全部是 handler，所以直接 `get_node_handler(node).execute()`：
+   - Brief / Storyboard：聊天模型写 Markdown
+   - Character / Scene / Keyframe：生图 API（失败则写 notes）
+   - Clip：wan3 `reference_image`；Film：ffmpeg concat + 垫乐
+   - Character+Scene 同一波时，handler **之前**还会跑进程内 A2A：双方先起草角色/场景卡，交叉约束，再生成；Storyboard 草稿会让这两张卡审一列。这是 LLM 人设，不是 `NodeAgentHost`。
+
+3. **节点 Agent（代码在，默认关掉）**  
+   `NodeAgentHost` 会按 `config.agent_template`（缺省 `designer/leader|character|scene|storyboard|frame|clip`）拉 AgentGroup，造一个 DeepAgent，带 `designer_graph_get` / `designer_graph_patch` / `designer_node_run` / `designer_node_complete`。失败则回退 handler。  
+   仓库里 **没有** 内置 `resources/.../agent_groups/designer` 包，模板加载会空，即便打开 `delegate: "agent"` 也很容易立刻 fallback。  
+   成片节点在 expand 时写死 `delegate: "handler"`，不会交给 Agent。
+
+若要把节点 Agent 真正接上：节点不要被 bootstrap 改成 handler（或事后改回 `delegate: "agent"`），并提供可加载的 `designer` AgentGroup；那时执行器改走 `_execute_agent_run`，对第一波就绪节点 `spawn_node_agent`。这不是当前 UI Play 路径。
+
+**English**
+
+**On the default Play pipeline, per-node DeepAgents do not run. Role handlers do the work.**
+
+There are three layers. This is not “each node is a live chatting Agent”:
+
+1. **Scheduling**  
+   UI `designer.graph.bootstrap` calls `_prefer_handler_pipeline()`, which stamps `delegate: "handler"` on every node that has no explicit delegate. Then `graph_uses_agent_scheduler()` is false and the executor uses `_execute_wave_run`: a node is `create_task`'d as soon as its `data`/`sync` predecessors complete, without waiting for the rest of the column.
+
+2. **Node execution (default)**  
+   `_run_single_node` enters `NodeAgentHost` only when `delegate != handler`. Bootstrap graphs are all handlers, so they call `get_node_handler(node).execute()`:
+   - Brief / Storyboard: chat model writes Markdown
+   - Character / Scene / Keyframe: image API (notes on failure)
+   - Clip: wan3 `reference_image`; Film: ffmpeg concat + BGM mix
+   - When Character and Scene share a wave, handlers are preceded by in-process A2A: both draft cards, exchange constraints, then generate; the Storyboard draft is reviewed against those cards. That is specialist LLM text, not `NodeAgentHost`.
+
+3. **Node Agent (implemented, off by default)**  
+   `NodeAgentHost` would load `config.agent_template` (defaults `designer/leader|character|scene|storyboard|frame|clip`), build a DeepAgent with `designer_graph_get` / `designer_graph_patch` / `designer_node_run` / `designer_node_complete`, and fall back to the handler on failure.  
+   This repo **does not** ship `resources/.../agent_groups/designer`, so template load returns empty. Even with `delegate: "agent"`, the host tends to fail fast into the handler.  
+   Film is always `delegate: "handler"` after shot expand.
+
+To actually turn node Agents on: do not let bootstrap stamp handler (or set `delegate: "agent"` later) and ship a loadable `designer` AgentGroup. The executor then uses `_execute_agent_run` and `spawn_node_agent` on the first ready wave. That is not the current UI Play path.
 
 -----------
 

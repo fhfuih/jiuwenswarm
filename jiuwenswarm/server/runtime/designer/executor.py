@@ -1,6 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
 
-"""Designer graph executor — wave scheduler or agent-owned graph."""
+"""Designer graph executor — DAG scheduler or agent-owned graph."""
 
 from __future__ import annotations
 
@@ -489,47 +489,73 @@ class GraphExecutor:
         graph, remaining, incoming, groups = self._expand_clips_if_needed(
             graph, run, remaining, on_update=on_update
         )
+        in_flight: dict[str, asyncio.Task[None]] = {}
+        workers = self._node_workers.setdefault(run_id, {})
         try:
-            while remaining:
+            while remaining or in_flight:
                 await self._await_pause(run_id)
                 if self._is_cancelled(run_id):
                     break
                 ready_ids = [
                     node_id
                     for node_id in remaining
-                    if _is_ready(node_id, run, incoming, groups)
+                    if node_id not in in_flight and _is_ready(node_id, run, incoming, groups)
                 ]
-                if not ready_ids:
+                if not ready_ids and not in_flight:
                     run["status"] = RUN_STATUS_FAILED
                     run["updated_at"] = utc_now_ms()
                     self._publish(run, on_update)
                     self._store.save_run(run)
                     return
-                run["current_node_ids"] = list(ready_ids)
-                run["updated_at"] = utc_now_ms()
-                self._publish(run, on_update)
-                self._store.save_run(run)
-                await collaborate_ready_wave(graph, run, ready_ids)
-                await asyncio.gather(
-                    *(
-                        self._run_single_node(
-                            graph,
-                            run,
-                            _node_by_id(graph, node_id),
-                            on_update=on_update,
+                if ready_ids:
+                    await collaborate_ready_wave(graph, run, ready_ids)
+                    for node_id in ready_ids:
+                        task = asyncio.create_task(
+                            self._run_single_node(
+                                graph,
+                                run,
+                                _node_by_id(graph, node_id),
+                                on_update=on_update,
+                            )
                         )
-                        for node_id in ready_ids
-                    )
+                        in_flight[node_id] = task
+                        workers[node_id] = task
+                    run["current_node_ids"] = list(in_flight)
+                    run["updated_at"] = utc_now_ms()
+                    self._publish(run, on_update)
+                    self._store.save_run(run)
+                if not in_flight:
+                    continue
+                done, _pending = await asyncio.wait(
+                    set(in_flight.values()),
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
+                for node_id, task in list(in_flight.items()):
+                    if task not in done:
+                        continue
+                    in_flight.pop(node_id, None)
+                    workers.pop(node_id, None)
+                    if task.cancelled():
+                        continue
+                    exc = task.exception()
+                    if exc is not None:
+                        logger.error(
+                            "Designer node %s failed in run %s",
+                            node_id,
+                            run_id,
+                            exc_info=exc,
+                        )
                 remaining -= {
                     node_id
-                    for node_id in ready_ids
-                    if run["node_states"].get(node_id, {}).get("status") in _TERMINAL_NODE_STATUSES
+                    for node_id in remaining
+                    if (run.get("node_states") or {}).get(node_id, {}).get("status")
+                    in _TERMINAL_NODE_STATUSES
                 }
                 graph, remaining, incoming, groups = self._expand_clips_if_needed(
                     graph, run, remaining, on_update=on_update
                 )
-                if run.get("status") == RUN_STATUS_FAILED or self._is_cancelled(run_id):
+                run["current_node_ids"] = list(in_flight)
+                if self._is_cancelled(run_id):
                     break
             if self._is_cancelled(run_id):
                 return
