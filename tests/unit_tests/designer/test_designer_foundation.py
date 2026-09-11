@@ -157,18 +157,17 @@ def test_bootstrap_graph_uses_modality_node_types() -> None:
     assert NODE_TYPE_TEXT in node_types
     assert NODE_TYPE_IMAGE in node_types
     roles = {node_role(node) for node in graph["nodes"]}
-    assert {NODE_ROLE_CHARACTER_DESIGN, NODE_ROLE_STORYBOARD} <= roles
-    assert NODE_ROLE_SCENE not in roles
-    assert not any(edge["source"] == "n_brief" and edge["target"] == "n_scene" for edge in graph["edges"])
+    assert {NODE_ROLE_CHARACTER_DESIGN, NODE_ROLE_STORYBOARD, NODE_ROLE_SCENE} <= roles
+    assert any(edge["source"] == "n_brief" and edge["target"] == "n_scene" for edge in graph["edges"])
     sync_edges = [edge for edge in graph["edges"] if edge.get("kind") == EDGE_KIND_SYNC]
-    assert len(sync_edges) == 1
+    assert len(sync_edges) == 2
     sync_pairs = {frozenset((edge["source"], edge["target"])) for edge in sync_edges}
     assert sync_pairs == {
         frozenset({"n_character", "n_storyboard"}),
+        frozenset({"n_scene", "n_storyboard"}),
     }
     assert any(edge["source"] == "n_frame_1" and edge["target"] == "n_clip_1" for edge in graph["edges"])
     assert any(edge["source"] == "n_clip_1" and edge["target"] == "n_compose" for edge in graph["edges"])
-    assert not any(edge["source"] == "n_scene" for edge in graph["edges"])
     clip = next(node for node in graph["nodes"] if node["id"] == "n_clip_1")
     assert "n_frame_1" in ((clip.get("config") or {}).get("inputs") or [])
     compose = next(node for node in graph["nodes"] if node["id"] == "n_compose")
@@ -423,15 +422,16 @@ def test_expand_splits_bundled_keyframe_images(designer_store: DesignerGraphStor
 
 def test_normalize_wires_existing_scene_on_old_bootstrap() -> None:
     graph = build_bootstrap_graph(project_id="proj_old02", prompt="legacy-align")
-    graph["nodes"].append(
-        {
-            "id": "n_scene",
-            "type": NODE_TYPE_IMAGE,
-            "label": "Scene",
-            "config": {"role": NODE_ROLE_SCENE, "inputs": ["n_brief"]},
-            "layout": {"x": 400, "y": 240, "width": 280, "height": 160},
-        }
-    )
+    if not any(node.get("id") == "n_scene" for node in graph["nodes"]):
+        graph["nodes"].append(
+            {
+                "id": "n_scene",
+                "type": NODE_TYPE_IMAGE,
+                "label": "Scene",
+                "config": {"role": NODE_ROLE_SCENE, "inputs": ["n_brief"]},
+                "layout": {"x": 400, "y": 240, "width": 280, "height": 160},
+            }
+        )
     restored = normalize_execution_graph(graph)
     assert any(
         edge.get("source") == "n_scene"
