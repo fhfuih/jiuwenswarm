@@ -132,10 +132,10 @@ async def test_clip_handler_sends_scene_plate_and_storyboard_as_multimodal(
     story = tmp_path / "storyboard.md"
     scene.write_bytes(b"png-scene")
     story.write_text(
-        "## 分镜表\n"
-        "| 镜号 | 时间轴 | 镜头视角 | 运镜 | 人物变化 | 场景变化 |\n"
-        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 | 未入画 | 站台 |\n"
-        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体入画 | 出站 |\n",
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  | 站台 |\n"
+        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  | 出站 |\n",
         encoding="utf-8",
     )
     video = tmp_path / "generated_clip.mp4"
@@ -155,6 +155,10 @@ async def test_clip_handler_sends_scene_plate_and_storyboard_as_multimodal(
             "label": "scene",
             "config": {"role": NODE_ROLE_SCENE},
         },
+    ]
+    graph["edges"] = [
+        {"id": "e_sb_clip", "source": "n_storyboard", "target": "n_clip"},
+        {"id": "e_scene_clip", "source": "n_scene", "target": "n_clip"},
     ]
     ctx = NodeExecutionContext(
         graph=graph,
@@ -489,10 +493,10 @@ async def test_clip_handler_uses_scene_plate_and_storyboard_duration_for_shot(
     story = tmp_path / "storyboard.md"
     scene.write_bytes(b"png-scene")
     story.write_text(
-        "## 分镜表\n"
-        "| 镜号 | 时间轴 | 镜头视角 | 运镜 | 人物变化 | 场景变化 |\n"
-        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 | 未入画 | 站台 |\n"
-        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体入画 | 出站 |\n",
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  | 站台 |\n"
+        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  | 出站 |\n",
         encoding="utf-8",
     )
     video = tmp_path / "generated_clip_2.mp4"
@@ -521,6 +525,10 @@ async def test_clip_handler_uses_scene_plate_and_storyboard_duration_for_shot(
             "label": "scene",
             "config": {"role": NODE_ROLE_SCENE},
         },
+    ]
+    graph["edges"] = [
+        {"id": "e_sb_clip", "source": "n_storyboard", "target": "n_clip_2"},
+        {"id": "e_scene_clip", "source": "n_scene", "target": "n_clip_2"},
     ]
     clip = next(node for node in graph["nodes"] if node["id"] == "n_clip_2")
     ctx = NodeExecutionContext(
