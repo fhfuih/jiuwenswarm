@@ -226,6 +226,8 @@
       "placeholderHint": "This node still has a placeholder output.",
       "openFile": "Open file",
       "textError": "Could not read text",
+      "addTableRow": "Add row",
+      "deleteTableRow": "Delete row {{row}}",
       "frameCount": "{{count}} frames",
       "collapse": "Collapse outputs",
       "expand": "Expand outputs",

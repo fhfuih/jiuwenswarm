@@ -226,6 +226,8 @@
       "placeholderHint": "这个节点还是占位产物，没有真实文件。",
       "openFile": "打开文件",
       "textError": "无法读取文本",
+      "addTableRow": "添加行",
+      "deleteTableRow": "删除第 {{row}} 行",
       "frameCount": "{{count}} 张关键帧",
       "collapse": "收起物料",
       "expand": "展开物料",

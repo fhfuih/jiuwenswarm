@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DesignerStoryboardTableFromUrl } from './DesignerStoryboardTable';
 import { DesignerTextEditor } from './DesignerTextEditor';
 import {
   classifyDesignerOutput,
-  isDesignerTableMaterial,
   isEditableDesignerMaterial,
   type DesignerMaterial,
 } from './designerMaterials';
@@ -151,13 +149,7 @@ export function DesignerMaterialViewer({
               <video key={current.uri} src={current.previewUrl} controls playsInline autoPlay />
             ) : kind === 'audio' && current.previewUrl ? (
               <audio key={current.uri} src={current.previewUrl} controls />
-            ) : isDesignerTableMaterial(current) && current.textUrl ? (
-              <DesignerStoryboardTableFromUrl
-                url={current.textUrl}
-                testId="designer-material-viewer-storyboard-table"
-                layout="full"
-              />
-            ) : kind === 'text' && current.textUrl ? (
+            ) : (kind === 'text' || current.kind === 'table') && current.textUrl ? (
               <DesignerTextEditor
                 material={current}
                 showStartButton={false}

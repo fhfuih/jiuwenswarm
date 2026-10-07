@@ -33,11 +33,9 @@ export type DesignerMaterial = {
 
 export function isEditableDesignerMaterial(material: DesignerMaterial): boolean {
   if (material.placeholder || !material.textUrl) return false;
-  // The storyboard table is rendered from structured shots; it is never hand-edited.
-  if (isDesignerTableMaterial(material)) return false;
   if (material.editable) return true;
   if (DESIGNER_EDITABLE_ROLES.has(material.role || '')) return true;
-  return material.kind === 'text';
+  return material.kind === 'text' || material.kind === 'table';
 }
 
 export function isDesignerTableMaterial(material: Pick<DesignerMaterial, 'kind' | 'role'>): boolean {
@@ -137,9 +135,8 @@ export function materialsFromRefs(
     const isTable = node.type === 'table' || ref.kind === 'table' || role === 'storyboard';
     const editable =
       !placeholder &&
-      !isTable &&
       Boolean(textUrl) &&
-      (DESIGNER_EDITABLE_ROLES.has(role) || kind === 'text' || isTextish);
+      (DESIGNER_EDITABLE_ROLES.has(role) || kind === 'text' || kind === 'table' || isTextish);
     return [
       {
         id: `${idPrefix}:${index}`,

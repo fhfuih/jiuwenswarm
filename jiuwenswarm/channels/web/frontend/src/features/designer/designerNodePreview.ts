@@ -46,6 +46,18 @@ function isSeparator(cells: string[]): boolean {
   return cells.length > 0 && cells.every((cell) => !cell || /^:?-{3,}:?$/.test(cell));
 }
 
+/** A cell can't hold a pipe or a line break without breaking the Markdown row. */
+export function sanitizeMarkdownTableCell(value: string): string {
+  return value.replace(/\|/g, '/').replace(/\r?\n/g, ' ');
+}
+
+export function serializeMarkdownTable(table: MarkdownTablePreview): string {
+  const line = (cells: string[]) =>
+    `| ${table.headers.map((_, index) => sanitizeMarkdownTableCell(cells[index] ?? '').trim()).join(' | ')} |`;
+  const separator = `| ${table.headers.map(() => '---').join(' | ')} |`;
+  return `${[line(table.headers), separator, ...table.rows.map(line)].join('\n')}\n`;
+}
+
 export function parseMarkdownTable(
   text: string,
   maxRows = Number.POSITIVE_INFINITY,

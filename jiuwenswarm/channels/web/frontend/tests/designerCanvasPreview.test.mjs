@@ -8,6 +8,8 @@ import {
 import {
   EMPTY_STORYBOARD_TABLE,
   parseMarkdownTable,
+  sanitizeMarkdownTableCell,
+  serializeMarkdownTable,
   storyboardShotPreviews,
 } from '../node_modules/.cache/designer-canvas-preview/designerNodePreview.js';
 import {
@@ -92,6 +94,39 @@ test('empty storyboard table is a blank eight-column frame', () => {
   ]);
   assert.equal(EMPTY_STORYBOARD_TABLE.rows.length, 2);
   assert.ok(EMPTY_STORYBOARD_TABLE.rows.every((row) => row.length === 8 && row.every((cell) => cell === '')));
+});
+
+test('serializeMarkdownTable round-trips edited cells and added or removed rows', () => {
+  const table = parseMarkdownTable(
+    [
+      STORYBOARD_HEADER,
+      STORYBOARD_SEPARATOR,
+      '| 1 | 0.0-2.0s | wide | static | Ann | steps off the train | | platform |',
+      '| 2 | 2.0-5.0s | medium | pan | Ann | walks to the exit | | station |',
+    ].join('\n'),
+  );
+  assert.ok(table);
+  const rows = [
+    table.rows[0].map((cell, index) => (index === 5 ? 'steps off | the\ntrain' : cell)),
+    ['3', '5.0-7.0s', '', '', '', 'waves', '', ''],
+  ];
+  const text = serializeMarkdownTable({ headers: table.headers, rows });
+  assert.ok(text.startsWith(`${STORYBOARD_HEADER}\n${STORYBOARD_SEPARATOR}\n`));
+  const reparsed = parseMarkdownTable(text);
+  assert.ok(reparsed);
+  assert.deepEqual(reparsed.headers, table.headers);
+  assert.equal(reparsed.rows.length, 2);
+  assert.equal(reparsed.rows[0][5], 'steps off / the train');
+  assert.deepEqual(reparsed.rows[1], ['3', '5.0-7.0s', '', '', '', 'waves', '', '']);
+  const shots = storyboardShotPreviews(text);
+  assert.deepEqual(
+    shots.map((shot) => shot.shotNo),
+    ['1', '3'],
+  );
+});
+
+test('sanitizeMarkdownTableCell keeps a cell on one Markdown row', () => {
+  assert.equal(sanitizeMarkdownTableCell('a | b\r\nc'), 'a / b c');
 });
 
 test('parseMarkdownTable keeps a table frame from generated markdown', () => {
