@@ -18,7 +18,7 @@ import {
   writeMediaGeneratePatch,
   writeMediaUploadPatch,
 } from '../../mediaNodeConfig';
-import type { DesignerComfyuiConfig } from '../../executionGraphTypes';
+import { DESIGNER_NODE_TYPE_TABLE, type DesignerComfyuiConfig } from '../../executionGraphTypes';
 import { DesignerComfyuiParamsForm } from './DesignerComfyuiParamsForm';
 import { DesignerMaterialStrip } from './DesignerMaterialStrip';
 
@@ -71,6 +71,7 @@ function savedFileForFilename(
 export function DesignerNodeToolbar({ nodeId, nodeType }: DesignerNodeToolbarProps) {
   const { t } = useTranslation();
   const isTextLike = isTextLikeNodeType(nodeType);
+  const isReadOnlyTable = nodeType === DESIGNER_NODE_TYPE_TABLE;
   const isMedia = isMediaNodeType(nodeType);
   const canGenerate = nodeType !== 'audio';
   const updateNodeConfig = useDesignerStore((state) => state.updateNodeConfig);
@@ -293,28 +294,30 @@ export function DesignerNodeToolbar({ nodeId, nodeType }: DesignerNodeToolbarPro
             {t('designer.toolbar.regenerate')}
           </button>
         ) : null}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={expanded === secondaryPanel}
-          className={`designer-node-toolbar__tab${expanded === secondaryPanel ? ' is-active' : ''}`}
-          data-testid={
-            isTextLike ? 'designer-node-toolbar-tab-edit' : 'designer-node-toolbar-tab-upload'
-          }
-          onClick={() => {
-            if (isTextLike) {
-              if (hasOutput) {
-                startEdit(material?.id || nodeId);
+        {isReadOnlyTable ? null : (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={expanded === secondaryPanel}
+            className={`designer-node-toolbar__tab${expanded === secondaryPanel ? ' is-active' : ''}`}
+            data-testid={
+              isTextLike ? 'designer-node-toolbar-tab-edit' : 'designer-node-toolbar-tab-upload'
+            }
+            onClick={() => {
+              if (isTextLike) {
+                if (hasOutput) {
+                  startEdit(material?.id || nodeId);
+                  return;
+                }
+                setExpanded((prev) => (prev === 'edit' ? null : 'edit'));
                 return;
               }
-              setExpanded((prev) => (prev === 'edit' ? null : 'edit'));
-              return;
-            }
-            setExpanded((prev) => (prev === secondaryPanel ? null : secondaryPanel));
-          }}
-        >
-          {isTextLike ? t('designer.toolbar.edit') : t('designer.toolbar.upload')}
-        </button>
+              setExpanded((prev) => (prev === secondaryPanel ? null : secondaryPanel));
+            }}
+          >
+            {isTextLike ? t('designer.toolbar.edit') : t('designer.toolbar.upload')}
+          </button>
+        )}
         {pendingRevision ? (
           <button
             type="button"

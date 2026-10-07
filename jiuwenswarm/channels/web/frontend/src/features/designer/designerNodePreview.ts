@@ -1,4 +1,4 @@
-import { parseStoryboardShots } from './storyboardShots';
+import { parseStoryboardShots, STORYBOARD_COLUMNS } from './storyboardShots';
 
 export type MarkdownTablePreview = {
   headers: string[];
@@ -24,26 +24,15 @@ export function storyboardShotPreviews(
         shotNo: String(shot.shot_no || '').trim(),
         timeline: String(shot.timeline || '').trim(),
         action: String(shot.character_action || '').trim(),
-        picture: String(shot.comment || shot.scene_change || camera || '').trim(),
+        picture: String(shot.scene_change || camera || '').trim(),
       };
     })
     .filter((shot) => shot.shotNo || shot.timeline || shot.action || shot.picture);
 }
 
 export const EMPTY_STORYBOARD_TABLE: MarkdownTablePreview = {
-  headers: [
-    'Shot',
-    'Timeline',
-    'Camera',
-    'Move',
-    'Character action',
-    'Scene change',
-    'Comment',
-  ],
-  rows: [
-    ['', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', ''],
-  ],
+  headers: STORYBOARD_COLUMNS.map(([, header]) => header),
+  rows: [STORYBOARD_COLUMNS.map(() => ''), STORYBOARD_COLUMNS.map(() => '')],
 };
 
 function splitMarkdownRow(line: string): string[] {

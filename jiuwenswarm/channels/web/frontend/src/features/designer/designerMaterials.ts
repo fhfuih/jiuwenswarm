@@ -33,9 +33,15 @@ export type DesignerMaterial = {
 
 export function isEditableDesignerMaterial(material: DesignerMaterial): boolean {
   if (material.placeholder || !material.textUrl) return false;
+  // The storyboard table is rendered from structured shots; it is never hand-edited.
+  if (isDesignerTableMaterial(material)) return false;
   if (material.editable) return true;
   if (DESIGNER_EDITABLE_ROLES.has(material.role || '')) return true;
-  return material.kind === 'text' || material.kind === 'table';
+  return material.kind === 'text';
+}
+
+export function isDesignerTableMaterial(material: Pick<DesignerMaterial, 'kind' | 'role'>): boolean {
+  return material.kind === 'table' || material.role === 'storyboard';
 }
 
 export function classifyDesignerOutput(input: {
@@ -128,16 +134,18 @@ export function materialsFromRefs(
         mime_type: mimeType,
         label,
       });
+    const isTable = node.type === 'table' || ref.kind === 'table' || role === 'storyboard';
     const editable =
       !placeholder &&
+      !isTable &&
       Boolean(textUrl) &&
-      (DESIGNER_EDITABLE_ROLES.has(role) || kind === 'text' || kind === 'table' || isTextish);
+      (DESIGNER_EDITABLE_ROLES.has(role) || kind === 'text' || isTextish);
     return [
       {
         id: `${idPrefix}:${index}`,
         nodeId: node.id,
         label,
-        kind: isTextish ? 'text' : kind,
+        kind: isTable ? 'table' : isTextish ? 'text' : kind,
         role,
         uri: ref.uri,
         mimeType,
