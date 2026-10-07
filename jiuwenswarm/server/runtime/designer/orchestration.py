@@ -2091,6 +2091,10 @@ class Director:
             "director_skill_excerpt",
             "active_director_skill",
             "director_lock_ack",
+            "director_composed_on_bootstrap",
+            "session_id",
+            "work_mode",
+            "model_name",
         ):
             if key in meta and meta.get(key) is not None:
                 rmeta[key] = meta.get(key)
@@ -3400,145 +3404,6 @@ class Director:
                 cfg["delegate"] = "agent"
             node["config"] = cfg
         return notes
-
-    async def review_brief(
-        self, graph: DesignerExecutionGraph
-    ) -> dict[str, Any]:
-        """One-pass LLM fidelity check of approved brief vs user prompt; patch if needed."""
-        meta = dict(graph.get("metadata") or {})
-        user_prompt = str(graph.get("description") or "")
-        brief = str(meta.get("approved_brief") or "")
-        analysis = (
-            dict(meta.get("script_analysis") or {})
-            if isinstance(meta.get("script_analysis"), dict)
-            else {}
-        )
-        characters = list(analysis.get("characters") or [])
-        ack: dict[str, Any] = {
-            "ok": True,
-            "source": "llm",
-            "notes": "Brief fidelity pass.",
-            "patched": [],
-        }
-        patched: list[str] = []
-        # Structural pre-check: ensure each character name appears in the brief.
-        missing: list[str] = []
-        low = brief.lower()
-        for c in characters:
-            name = str(c.get("name") or "").strip()
-            if name and name.lower() not in low:
-                missing.append(name)
-        if missing:
-            extra = "\n".join(f"- **{n}:** must appear with identity lock" for n in missing)
-            brief = (brief.rstrip() + "\n\n**Director cast fidelity:**\n" + extra + "\n")[
-                :12000
-            ]
-            patched.append("cast_names")
-        # Heuristic: mention multi-view / shot coverage when prompt is long.
-        if len(user_prompt) > 120 and "shot" not in low and "view" not in low:
-            brief = (
-                brief.rstrip()
-                + "\n\n**Shot views:** cover establishing, mid, reaction close-ups "
-                "for every major prompt beat.\n"
-            )[:12000]
-            patched.append("shot_views")
-
-        from jiuwenswarm.server.runtime.designer.model_tools import (
-            DesignerLlmError,
-            LLM_API_ERROR,
-            model_text_or_raise,
-        )
-
-        try:
-            system = (
-                "You are the Designer Director. Review the creative brief once for fidelity "
-                "to explicit user facts and constraints. The authored brief is allowed to "
-                "creatively fill details that a sparse request left unspecified. Preserve its "
-                "creative concept, narrative/content arc, timed shot plan, and script/speech "
-                "plan; do not remove an enriched shot merely because it was not stated verbatim "
-                "in the user prompt. Flag missing characters, insufficient shot views, or content "
-                "that contradicts explicit user facts."
-                "Preserve the user's visual style and the existing Visual Style section exactly. "
-                "Patch only to repair those issues; do not "
-                "introduce a conflicting or unrelated plot, cast, claim, or geography. "
-                "Respond JSON only: "
-                '{"ok":true,"patched_brief_markdown":"...","notes":"...","issues":["..."]}'
-            )
-            result = await call_model_tool(
-                prompt=json.dumps(
-                    {
-                        "user_prompt": user_prompt,
-                        "brief": brief[:12000],
-                        "characters": characters,
-                        "shots": analysis.get("shots"),
-                    },
-                    ensure_ascii=False,
-                ),
-                system=system,
-                optimize_for="quality",
-                max_tokens=32768,
-            )
-            text = model_text_or_raise(result)
-            parsed = _extract_json_object(text)
-            if parsed is None:
-                raise DesignerLlmError(
-                    "Chat model did not return valid brief review JSON.",
-                    code=LLM_API_ERROR,
-                )
-            patched_md = str(parsed.get("patched_brief_markdown") or "").strip()
-            if patched_md and len(patched_md) > 80:
-                brief = patched_md[:12000]
-                patched.append("llm_brief")
-                ack["source"] = "llm"
-            ack["notes"] = str(parsed.get("notes") or ack["notes"])[:1000]
-            ack["issues"] = list(parsed.get("issues") or [])[:20]
-        except DesignerLlmError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            logger.info("Director review_brief LLM failed", exc_info=True)
-            raise DesignerLlmError(
-                f"Chat model request failed while reviewing the brief: {exc}",
-                code=LLM_API_ERROR,
-            ) from exc
-
-        from jiuwenswarm.server.runtime.designer.media_model_playbook import (
-            ensure_visual_style_statement,
-            synchronize_graph_style_from_brief,
-        )
-
-        brief = ensure_visual_style_statement(
-            brief,
-            analysis.get("style_lock") if isinstance(analysis.get("style_lock"), dict) else {},
-        )
-        meta["approved_brief"] = brief
-        graph["metadata"] = meta
-        synchronize_graph_style_from_brief(graph, brief)
-        meta = dict(graph.get("metadata") or {})
-        ack["patched"] = patched[:20]
-        meta["director_brief_ack"] = ack
-        graph["metadata"] = meta
-        return ack
-
-    async def review_storyboard(
-        self, graph: DesignerExecutionGraph
-    ) -> dict[str, Any]:
-        """Pre-run one-pass storyboard fidelity + enhancements (crowd, beauty, duration, consistency)."""
-        meta = dict(graph.get("metadata") or {})
-        if meta.get("storyboard_pre_reviewed"):
-            return dict(meta.get("director_storyboard_pre_ack") or {"ok": True, "skipped": True})
-        # Clear mid-run once-flag so review_storyboard_once applies patches now.
-        meta.pop("storyboard_reviewed", None)
-        graph["metadata"] = meta
-        ack = await self.review_storyboard_once(
-            graph, node_states=None
-        )
-        meta = dict(graph.get("metadata") or {})
-        meta["storyboard_pre_reviewed"] = True
-        meta["director_storyboard_pre_ack"] = ack
-        # Allow a second pass after the storyboard leaf completes during the ready-queue.
-        meta["storyboard_reviewed"] = False
-        graph["metadata"] = meta
-        return ack
 
     async def review_storyboard_once(
         self,

@@ -234,7 +234,7 @@ async def test_director_graph_design_rejects_empty_model_text(
 
 
 @pytest.mark.asyncio
-async def test_director_reviews_reject_nonthrowing_model_failures(
+async def test_director_storyboard_review_rejects_nonthrowing_model_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from jiuwenswarm.server.runtime.designer import orchestration
@@ -244,17 +244,6 @@ async def test_director_reviews_reject_nonthrowing_model_failures(
 
     monkeypatch.setattr(orchestration, "call_model_tool", fail_model_call)
     director = orchestration.Director()
-    brief_graph = {
-        "description": "Lead opens the door.",
-        "nodes": [],
-        "metadata": {
-            "approved_brief": "# Brief\n\nLead opens the door.",
-            "script_analysis": {"characters": [{"id": "char_1", "name": "Lead"}]},
-        },
-    }
-    with pytest.raises(DesignerLlmError):
-        await director.review_brief(brief_graph)
-
     storyboard_graph = {
         "description": "Lead opens the door.",
         "nodes": [],

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { chatDesignerGraph } from '../designerEntry';
 import { isDesignerPreviewGraph } from '../designerBootstrapGraph';
 import { useDesignerStore } from '../designerStore';
-import { designerActivityText } from '../designerActivity';
+import { designerActivityText, localizeRunLeaderPeek } from '../designerActivity';
 import { selectLeaderPeek, useDesignerRunStore } from '../designerRunStore';
 import { useDesignerChatStore } from '../designerChatStore';
 import {
@@ -113,7 +113,8 @@ export function DesignerChatPanel() {
   useEffect(() => {
     const thinking = messages.find((item) => item.kind === 'thinking');
     if (!thinking) return;
-    const latest = designerActivityText(leaderPeek?.activity) || leaderPeek?.activity_tail?.at(-1);
+    const shown = leaderPeek?.source === 'run' ? localizeRunLeaderPeek(leaderPeek, t) : leaderPeek;
+    const latest = designerActivityText(shown?.activity) || shown?.activity_tail?.at(-1);
     if (!latest || latest === thinking.content) return;
     useDesignerChatStore.getState().removeMessage(thinking.id);
     useDesignerChatStore.getState().appendMessage({
@@ -122,7 +123,7 @@ export function DesignerChatPanel() {
       content: latest,
       kind: 'thinking',
     });
-  }, [leaderPeek, messages]);
+  }, [leaderPeek, messages, t]);
 
   const limitError = useCallback(
     (kind: DesignerReferenceKind) => {

@@ -1412,14 +1412,8 @@ async def _bootstrap_graph_with_director_impl(
             on_progress("thinking", "Director · Authoring brief (LLM)")
         await Director().author_creative_brief(graph)
         if callable(on_progress):
-            on_progress("thinking", "Director · Reviewing / approving brief")
-        await Director().review_brief(graph)
-        if callable(on_progress):
             on_progress("thinking", "Director · Designing storyboard (LLM)")
         await Director().author_storyboard(graph)
-        if callable(on_progress):
-            on_progress("thinking", "Director · Reviewing / approving storyboard")
-        await Director().review_storyboard(graph)
         if callable(on_progress):
             on_progress(
                 "tool_call",
@@ -1430,6 +1424,14 @@ async def _bootstrap_graph_with_director_impl(
             graph,
             optimize_for=optimize_for,
         )
+        if callable(on_progress):
+            on_progress("thinking", "Director · Planning node agents (LLM)")
+        director_skill = str((graph.get("metadata") or {}).get("director_skill_excerpt") or "")
+        if director_skill:
+            meta = dict(graph.get("metadata") or {})
+            meta["active_director_skill"] = director_skill[:3000]
+            graph["metadata"] = meta
+        await Director().plan(graph, optimize_for=optimize_for, prior_feedback=None)
         if callable(on_progress):
             on_progress("thinking", "Director · Validating / approving graph + locks")
         await Director().validate_plan(graph)
@@ -1442,12 +1444,16 @@ async def _bootstrap_graph_with_director_impl(
         )
         meta["director_composed_on_bootstrap"] = True
         graph["metadata"] = meta
+        saved = _store.save_graph(graph)
+        if callable(on_progress):
+            on_progress("stage", "Director · Writing brief and storyboard")
+        await _executor.materialize_director_text(saved)
+        saved = _store.get_graph(str(saved["graph_id"])) or saved
         if callable(on_progress):
             on_progress(
                 "stage",
                 f"Director · Approved — {cast_n} solo cards",
             )
-        saved = _store.save_graph(graph)
         payload = dict(payload)
         payload["graph"] = dict(saved)
         return payload, None, None

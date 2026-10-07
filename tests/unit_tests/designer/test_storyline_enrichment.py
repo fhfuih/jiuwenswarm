@@ -106,53 +106,6 @@ async def test_director_brief_prompt_requires_visible_story_and_script_plan(
 
 
 @pytest.mark.asyncio
-async def test_brief_review_preserves_approved_enrichment(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, str] = {}
-
-    async def fake_model_call(**kwargs: object) -> dict[str, object]:
-        captured["system"] = str(kwargs["system"])
-        captured["prompt"] = str(kwargs["prompt"])
-        return {
-            "ok": True,
-            "text": json.dumps(
-                {
-                    "ok": True,
-                    "patched_brief_markdown": "",
-                    "notes": "Approved enrichment is consistent.",
-                    "issues": [],
-                }
-            ),
-        }
-
-    monkeypatch.setattr(orchestration, "call_model_tool", fake_model_call)
-    graph = {
-        "description": "Create a 30 second video for Christmas celebration.",
-        "nodes": [],
-        "metadata": {
-            "approved_brief": (
-                "# Brief\n\n## Creative concept\nA gift reveals shared memories.\n\n"
-                "## Narrative/content arc\nSetup, discovery, and payoff.\n\n"
-                "## Timed beat plan\n0-8s setup; 8-22s discovery; 22-30s payoff.\n\n"
-                "## Script/speech plan\nNarrator: \"Make this Christmas last.\""
-            ),
-            "script_analysis": {
-                "characters": [{"id": "char_1", "name": "Celebrant"}],
-                "shots": [{"shot_index": 1, "action": "A gift arrives."}],
-            },
-        },
-    }
-
-    await Director().review_brief(graph)
-
-    assert "Preserve its creative concept, narrative/content arc" in captured["system"]
-    assert "not stated verbatim" in captured["system"]
-    assert "A gift reveals shared memories" in captured["prompt"]
-    assert "A gift reveals shared memories" in graph["metadata"]["approved_brief"]
-
-
-@pytest.mark.asyncio
 async def test_director_storyboard_materializes_enriched_speech_into_clip_config(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

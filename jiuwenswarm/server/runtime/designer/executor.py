@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from contextlib import nullcontext
 from copy import deepcopy
@@ -12,12 +13,14 @@ from dataclasses import dataclass
 from typing import Any, AsyncIterator, Callable, Protocol
 
 from jiuwenswarm.common.schema.designer_graph import (
+    ACTIVITY_KIND_THINKING,
     CONFIG_DELEGATE_AGENT,
     CONFIG_DELEGATE_HANDLER,
     DesignerExecutionGraph,
     DesignerExecutionRun,
     DesignerGraphNode,
     DesignerNodeState,
+    LEADER_NODE_ID,
     NODE_ROLE_BRIEF,
     NODE_ROLE_CLIP,
     NODE_ROLE_COMPOSE,
@@ -48,6 +51,7 @@ from jiuwenswarm.common.schema.designer_graph import (
     graph_uses_agent_scheduler,
     initial_node_states,
     is_comfyui_node,
+    is_leader_node_id,
     is_soft_artifact_dependency,
     new_run_id,
     node_pipeline,
@@ -57,6 +61,7 @@ from jiuwenswarm.common.schema.designer_graph import (
 )
 from jiuwenswarm.common.schema.message import EventType
 from jiuwenswarm.server.runtime.designer.activity import (
+    complete_leader_activity,
     emit_run_activity,
     graph_node_states,
 )
@@ -308,6 +313,44 @@ class GraphExecutor:
             "current_node_ids": [],
             "created_at": now,
             "updated_at": now,
+        }
+        return self._store.save_run(run)
+
+    async def materialize_director_text(
+        self, graph: DesignerExecutionGraph
+    ) -> DesignerExecutionRun:
+        """Write the Director-approved brief and storyboard as completed nodes of a new run.
+
+        The first Continue on this run consumes ``director_text_handoff``: it reads
+        user edits of those files and skips planning when the topology is unchanged.
+        """
+        from jiuwenswarm.server.runtime.designer.handlers.common import read_node_text
+
+        run = self.create_run(graph)
+        run_id = run["run_id"]
+        written: dict[str, str] = {}
+        try:
+            for node in list(graph.get("nodes") or []):
+                if node_pipeline(node) not in {NODE_ROLE_BRIEF, NODE_ROLE_STORYBOARD}:
+                    continue
+                if not _director_text_ready(graph, node):
+                    continue
+                await self._run_single_node(graph, run, node, on_update=None)
+                state = (run.get("node_states") or {}).get(node["id"]) or {}
+                if state.get("status") != NODE_STATUS_COMPLETED:
+                    raise RuntimeError(
+                        str(state.get("error") or f"{node['id']} was not written")
+                    )
+                text, _ = read_node_text(node, run)
+                written[node["id"]] = _text_digest(text)
+        finally:
+            self._cleanup_run(run_id)
+        run["metadata"] = {
+            **dict(run.get("metadata") or {}),
+            "director_text_handoff": {
+                "topology": _topology_fingerprint(self._require_graph(graph["graph_id"])),
+                "texts": written,
+            },
         }
         return self._store.save_run(run)
 
@@ -1083,6 +1126,7 @@ class GraphExecutor:
                 and (use_prior or not already_composed)
             )
             if run_enter_redesign:
+                self._leader_activity(run, "Director · Authoring brief (LLM)", on_update)
                 with traj.span(
                     agent_id="director",
                     action="author_creative_brief",
@@ -1106,27 +1150,7 @@ class GraphExecutor:
                     )
                     graph = self._store.save_graph(graph)
 
-                with traj.span(
-                    agent_id="director",
-                    action="review_brief",
-                    phase="orchestration",
-                    role="director",
-                    tool="llm",
-                ):
-                    mgr_brief = await Director().review_brief(graph)
-                    traj.record(
-                        agent_id="director",
-                        action="review_brief_result",
-                        phase="orchestration",
-                        role="director",
-                        detail={
-                            "source": mgr_brief.get("source"),
-                            "patched": list(mgr_brief.get("patched") or [])[:20],
-                            "notes": str(mgr_brief.get("notes") or "")[:400],
-                        },
-                    )
-                    graph = self._store.save_graph(graph)
-
+                self._leader_activity(run, "Director · Designing storyboard (LLM)", on_update)
                 with traj.span(
                     agent_id="director",
                     action="author_storyboard",
@@ -1150,30 +1174,10 @@ class GraphExecutor:
                     )
                     graph = self._store.save_graph(graph)
 
-                with traj.span(
-                    agent_id="director",
-                    action="review_storyboard_pre",
-                    phase="orchestration",
-                    role="director",
-                    tool="llm",
-                ):
-                    mgr_sb = await Director().review_storyboard(
-                        graph
-                    )
-                    traj.record(
-                        agent_id="director",
-                        action="review_storyboard_pre_result",
-                        phase="orchestration",
-                        role="director",
-                        detail={
-                            "source": mgr_sb.get("source"),
-                            "patched": list(mgr_sb.get("patched") or [])[:20],
-                            "notes": str(mgr_sb.get("notes") or "")[:400],
-                        },
-                    )
-                    graph = self._store.save_graph(graph)
-
                 # Director designs flexible multi-shot graph from locked Brief+Storyboard.
+                self._leader_activity(
+                    run, "Director · Designing execution graph (LLM)", on_update
+                )
                 with traj.span(
                     agent_id="director",
                     action="design_execution_graph",
@@ -1215,6 +1219,36 @@ class GraphExecutor:
                     },
                 )
 
+            run_meta = dict(run.get("metadata") or {})
+            text_handoff = run_meta.pop("director_text_handoff", None)
+            replan_after_handoff = False
+            if text_handoff is not None:
+                run["metadata"] = run_meta
+                self._store.save_run(run)
+            if isinstance(text_handoff, dict) and not single_node_rerun:
+                with traj.span(
+                    agent_id="director",
+                    action="apply_director_text_edits",
+                    phase="orchestration",
+                    role="director",
+                    tool="structural",
+                ):
+                    graph, edit_ack = await self._apply_director_text_edits(
+                        graph,
+                        run,
+                        text_handoff,
+                        optimize_for=optimize_for,
+                        on_update=on_update,
+                    )
+                    replan_after_handoff = bool(edit_ack.get("topology_changed"))
+                    traj.record(
+                        agent_id="director",
+                        action="apply_director_text_edits_result",
+                        phase="orchestration",
+                        role="director",
+                        detail=edit_ack,
+                    )
+
             if single_node_rerun:
                 traj.record(
                     agent_id="director",
@@ -1223,7 +1257,16 @@ class GraphExecutor:
                     role="director",
                     detail={"reason": "single_node_rerun"},
                 )
+            elif text_handoff is not None and not replan_after_handoff:
+                traj.record(
+                    agent_id="director",
+                    action="skip_plan_after_bootstrap",
+                    phase="orchestration",
+                    role="director",
+                    detail={"reason": "planned_on_bootstrap"},
+                )
             else:
+                self._leader_activity(run, "Director · Planning node agents (LLM)", on_update)
                 with traj.span(
                     agent_id="director",
                     action="plan",
@@ -1256,6 +1299,9 @@ class GraphExecutor:
                     )
                     self._store.save_graph(graph)
 
+                self._leader_activity(
+                    run, "Director · Validating graph + locks (LLM)", on_update
+                )
                 with traj.span(
                     agent_id="director",
                     action="validate_plan",
@@ -1387,6 +1433,7 @@ class GraphExecutor:
                 sb_state = (run.get("node_states") or {}).get("n_storyboard") or {}
                 if sb_state.get("status") not in _TERMINAL_NODE_STATUSES:
                     return
+                self._leader_activity(run, "Director · Reviewing storyboard (LLM)", on_update)
                 with traj.span(
                     agent_id="director",
                     action="review_storyboard",
@@ -1409,6 +1456,23 @@ class GraphExecutor:
                         },
                     )
                 graph = self._store.save_graph(graph)
+                self._finish_leader_activity(run, "Director · Storyboard reviewed", on_update)
+
+            # A storyboard completed before this run starts (bootstrap) is reviewed
+            # before any downstream node reads it.
+            if not single_node_rerun:
+                await _maybe_review_storyboard()
+                self._resync_run_after_graph_redesign(run, graph)
+                remaining = {
+                    node["id"]
+                    for node in graph.get("nodes", [])
+                    if (run.get("node_states") or {}).get(node["id"], {}).get("status")
+                    not in _TERMINAL_NODE_STATUSES
+                }
+                incoming = execution_predecessors(graph)
+                groups = sync_groups(graph)
+                self._publish_graph(run, graph)
+            self._finish_leader_activity(run, "Director · Plan ready", on_update)
 
             while remaining or in_flight:
                 await self._await_pause(run_id)
@@ -1667,6 +1731,7 @@ class GraphExecutor:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Designer run %s failed: %s", run_id, exc)
             _stamp_run_failure(run, exc)
+            self._finish_leader_activity(run, "", None)
             self._publish(run, on_update)
             self._store.save_run(run)
             rec = get_trajectory(run_id)
@@ -2568,7 +2633,11 @@ class GraphExecutor:
         }
         states = dict(run.get("node_states") or {})
         # Drop states for removed nodes; seed pending for new ones.
-        states = {nid: st for nid, st in states.items() if nid in live_ids}
+        states = {
+            nid: st
+            for nid, st in states.items()
+            if nid in live_ids or is_leader_node_id(nid)
+        }
         for nid in live_ids:
             if nid not in states:
                 states[nid] = {"status": NODE_STATUS_PENDING}
@@ -2605,6 +2674,118 @@ class GraphExecutor:
     ) -> None:
         if on_update is not None:
             on_update(run, node_id)
+
+    @staticmethod
+    def _leader_activity(
+        run: DesignerExecutionRun,
+        text: str,
+        on_update: RunUpdateCallback | None,
+    ) -> None:
+        """Show a Director orchestration step on the canvas leader strip."""
+        emit_run_activity(
+            run,
+            LEADER_NODE_ID,
+            kind=ACTIVITY_KIND_THINKING,
+            text=text,
+            status=NODE_STATUS_RUNNING,
+            on_update=on_update,
+            force=True,
+        )
+
+    @staticmethod
+    def _finish_leader_activity(
+        run: DesignerExecutionRun,
+        text: str,
+        on_update: RunUpdateCallback | None,
+    ) -> None:
+        leader = (run.get("node_states") or {}).get(LEADER_NODE_ID)
+        if not isinstance(leader, dict) or leader.get("status") != NODE_STATUS_RUNNING:
+            return
+        complete_leader_activity(run, text)
+        if on_update is not None:
+            on_update(run, LEADER_NODE_ID)
+
+    async def _apply_director_text_edits(
+        self,
+        graph: DesignerExecutionGraph,
+        run: DesignerExecutionRun,
+        handoff: dict[str, Any],
+        *,
+        optimize_for: str,
+        on_update: RunUpdateCallback | None,
+    ) -> tuple[DesignerExecutionGraph, dict[str, Any]]:
+        """Adopt user edits of the bootstrap brief/storyboard files before nodes run.
+
+        Returns ``topology_changed`` when the canvas or the storyboard shot list
+        no longer matches the graph the Director planned on bootstrap.
+        """
+        from jiuwenswarm.server.runtime.designer.handlers.common import read_node_text
+        from jiuwenswarm.server.runtime.designer.handlers.text_nodes import (
+            parse_storyboard_shots,
+            sync_shot_nodes_from_storyboard_markdown,
+        )
+        from jiuwenswarm.server.runtime.designer.media_model_playbook import (
+            synchronize_graph_style_from_brief,
+        )
+        from jiuwenswarm.server.runtime.designer.orchestration import Director
+
+        ack: dict[str, Any] = {
+            "edited": [],
+            "topology_changed": _topology_fingerprint(graph) != handoff.get("topology"),
+        }
+        written = handoff.get("texts") if isinstance(handoff.get("texts"), dict) else {}
+        if ack["topology_changed"]:
+            self._leader_activity(run, "Director · Reading brief and storyboard edits", on_update)
+        storyboard_text = ""
+        for node in graph.get("nodes") or []:
+            role = node_pipeline(node)
+            node_id = str(node.get("id") or "")
+            if role not in {NODE_ROLE_BRIEF, NODE_ROLE_STORYBOARD} or node_id not in written:
+                continue
+            text, _ = read_node_text(node, run)
+            edited = _director_text_body(text)
+            if not edited or _text_digest(text) == written[node_id]:
+                continue
+            if not ack["edited"] and not ack["topology_changed"]:
+                self._leader_activity(
+                    run, "Director · Reading brief and storyboard edits", on_update
+                )
+            meta = dict(graph.get("metadata") or {})
+            meta[f"approved_{role}"] = edited
+            graph["metadata"] = meta
+            synchronize_graph_style_from_brief(graph, edited)
+            ack["edited"].append(node_id)
+            if role == NODE_ROLE_STORYBOARD:
+                storyboard_text = edited
+        if storyboard_text:
+            rows = parse_storyboard_shots(storyboard_text)
+            if rows and len(rows) == _graph_shot_count(graph):
+                _apply_storyboard_rows(graph, rows)
+                ack["synced_shots"] = sync_shot_nodes_from_storyboard_markdown(
+                    graph, storyboard_text
+                )[:40]
+            else:
+                self._leader_activity(
+                    run, "Director · Rebuilding shots from the edited storyboard (LLM)", on_update
+                )
+                graph_ack = await Director().design_execution_graph(
+                    graph, optimize_for=optimize_for
+                )
+                ack["redesign"] = {
+                    "source": graph_ack.get("source"),
+                    "shot_count": graph_ack.get("shot_count"),
+                }
+                ack["topology_changed"] = True
+        if ack["edited"]:
+            meta = dict(graph.get("metadata") or {})
+            meta.pop("storyboard_reviewed", None)
+            graph["metadata"] = meta
+        graph = self._store.save_graph(graph)
+        if ack["edited"]:
+            self._resync_run_after_graph_redesign(run, graph)
+            self._publish(run, on_update)
+            self._publish_graph(run, graph)
+        return graph, ack
 
 
 def _image_output_refs(state: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2730,6 +2911,67 @@ def _pending_media_modalities(
         elif modality == NODE_TYPE_VIDEO:
             needs_video = True
     return {"image": needs_image, "video": needs_video}
+
+
+_PRODUCTION_BIBLE_HEADING = "\n\n## Production Lock Bible\n\n"
+
+
+def _text_digest(text: str) -> str:
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def _director_text_body(text: str) -> str:
+    """Text the user edited, without the production bible the handler appends."""
+    return (text or "").split(_PRODUCTION_BIBLE_HEADING, 1)[0].strip()
+
+
+def _topology_fingerprint(graph: DesignerExecutionGraph) -> dict[str, list[str]]:
+    return {
+        "nodes": sorted(str(node.get("id") or "") for node in graph.get("nodes") or []),
+        "edges": sorted(
+            f"{edge.get('source')}->{edge.get('target')}" for edge in graph.get("edges") or []
+        ),
+    }
+
+
+def _graph_shot_count(graph: DesignerExecutionGraph) -> int:
+    for role in (NODE_ROLE_CLIP, NODE_ROLE_FRAME):
+        indices = {
+            int((node.get("config") or {}).get("shot_index") or 0)
+            for node in graph.get("nodes") or []
+            if node_pipeline(node) == role
+        }
+        indices.discard(0)
+        if indices:
+            return len(indices)
+    analysis = (graph.get("metadata") or {}).get("script_analysis") or {}
+    return len(analysis.get("shots") or []) if isinstance(analysis, dict) else 0
+
+
+def _apply_storyboard_rows(graph: DesignerExecutionGraph, rows: list[Any]) -> None:
+    """Copy edited storyboard rows onto the structured shots, matched by position."""
+    meta = dict(graph.get("metadata") or {})
+    analysis = dict(meta.get("script_analysis") or {})
+    shots = [dict(shot) for shot in analysis.get("shots") or [] if isinstance(shot, dict)]
+    for shot, row in zip(shots, rows):
+        action = str(row.get("character_action") or row.get("comment") or "").strip()
+        comment = str(row.get("comment") or "").strip()
+        for key, value in (
+            ("action", action),
+            ("camera", str(row.get("camera") or "").strip()),
+            ("timeline", str(row.get("timeline") or "").strip()),
+            ("keyframe_prompt", comment),
+        ):
+            if value:
+                shot[key] = value
+    analysis["shots"] = shots
+    meta["script_analysis"] = analysis
+    graph["metadata"] = meta
+    for node in graph.get("nodes") or []:
+        if node_pipeline(node) == NODE_ROLE_STORYBOARD:
+            cfg = dict(node.get("config") or {})
+            cfg["planned_shots"] = shots
+            node["config"] = cfg
 
 
 def _parked_node_state(state: DesignerNodeState | dict[str, Any]) -> DesignerNodeState:

@@ -19,9 +19,7 @@ def _skip_media_config_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
 
 _DIRECTOR_LLM_PHASES = (
     "author_creative_brief",
-    "review_brief",
     "author_storyboard",
-    "review_storyboard",
     "design_execution_graph",
     "plan",
     "validate_plan",

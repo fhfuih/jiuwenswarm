@@ -87,6 +87,10 @@
       "disconnect": "Edge removed",
       "replace": "Output replaced"
     },
+    "leader": {
+      "reviewingEdits": "Reviewing your changes…",
+      "preparing": "Director is preparing the run…"
+    },
     "chat": {
       "title": "Design assistant",
       "emptyHint": "What can I create for you?",

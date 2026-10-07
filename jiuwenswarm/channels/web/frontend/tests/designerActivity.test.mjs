@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -6,7 +7,45 @@ import {
   designerActivityLines,
   designerActivityText,
   isDesignerLeaderNodeId,
+  localizeRunLeaderPeek,
+  RUN_LEADER_EDIT_TEXTS,
+  runLeaderActivityKey,
 } from '../node_modules/.cache/designer-activity/designerActivity.js';
+
+const readJson = (relative) => JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8'));
+const lookup = (messages, key) => key.split('.').reduce((node, part) => node?.[part], messages);
+
+test('run leader edit texts exist in the executor and both phrases are translated', () => {
+  const executor = readFileSync(new URL('../../../../server/runtime/designer/executor.py', import.meta.url), 'utf8');
+  for (const text of RUN_LEADER_EDIT_TEXTS) {
+    assert.ok(executor.includes(`"${text}"`), `executor no longer emits ${text}`);
+  }
+  const locales = [readJson('../src/i18n/locales/en.json'), readJson('../src/i18n/locales/zh.json')];
+  for (const key of ['designer.leader.reviewingEdits', 'designer.leader.preparing']) {
+    for (const messages of locales) {
+      assert.equal(typeof lookup(messages, key), 'string', `missing ${key}`);
+    }
+  }
+});
+
+test('run leader steps collapse to reviewing-edits or preparing', () => {
+  assert.equal(runLeaderActivityKey('Director · Reading brief and storyboard edits'), 'designer.leader.reviewingEdits');
+  assert.equal(runLeaderActivityKey('Director · Planning node agents (LLM)'), 'designer.leader.preparing');
+  const peek = localizeRunLeaderPeek(
+    {
+      activity: { kind: 'stage', text: 'Director · Plan ready', at: 4 },
+      activity_tail: [
+        'Director · Reading brief and storyboard edits',
+        'Director · Rebuilding shots from the edited storyboard (LLM)',
+        'Director · Planning node agents (LLM)',
+        'Director · Validating graph + locks (LLM)',
+      ],
+    },
+    (key) => key,
+  );
+  assert.deepEqual(peek.activity_tail, ['designer.leader.reviewingEdits', 'designer.leader.preparing']);
+  assert.equal(peek.activity.text, 'designer.leader.preparing');
+});
 
 test('leader node id is virtual', () => {
   assert.equal(isDesignerLeaderNodeId('__leader__'), true);
