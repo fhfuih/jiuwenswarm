@@ -8,6 +8,7 @@ from pathlib import Path
 from shutil import copy2
 
 from jiuwenswarm.common.schema.designer_graph import (
+    NODE_ROLE_BRIEF,
     NODE_ROLE_CHARACTER_DESIGN,
     NODE_ROLE_SCENE,
     NODE_ROLE_STORYBOARD,
@@ -338,12 +339,12 @@ async def _require_image(
 
 
 def _aligned_source(ctx: NodeExecutionContext, role: str, node: DesignerGraphNode) -> str:
-    # Brief is for the storyboard leaf. Character / scene prefer the node prompt,
-    # collaboration card, or storyboard — not the full user brief.
+    # The node prompt can be cleared from the toolbar or chat; the brief then
+    # carries the cast and setting descriptions.
     return (
         collaboration_card(ctx.run_id, role)
         or str((node.get("config") or {}).get("prompt") or "").strip()
-        or role_output_text(ctx, NODE_ROLE_STORYBOARD)
+        or role_output_text(ctx, NODE_ROLE_BRIEF)
         or graph_prompt(ctx.graph, node)
     )
 
