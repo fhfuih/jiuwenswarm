@@ -119,20 +119,23 @@ export function DesignerStoryboardTableDraft({ text, disabled = false, onChange 
                 {columnLabel(header)}
               </th>
             ))}
-            <th scope="col" aria-hidden />
           </tr>
         </thead>
         <tbody>
           {table.rows.map((row, rowIndex) => (
             <tr key={rowIndex} data-testid="designer-storyboard-table-draft-row" data-variant={String(rowIndex + 1)}>
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex}>
+                <td
+                  key={cellIndex}
+                  className={cellIndex === row.length - 1 ? 'designer-storyboard-table__row-end' : undefined}
+                >
                   {/* The hidden copy of the text sizes the cell the way the read-only table does. */}
                   <div className="designer-storyboard-table__cell" data-value={cell}>
                     <textarea
                       className="designer-storyboard-table__cell-input"
                       value={cell}
                       rows={1}
+                      cols={1}
                       disabled={disabled}
                       aria-label={`${columnLabel(table.headers[cellIndex] || '')} ${rowIndex + 1}`}
                       data-testid="designer-storyboard-table-draft-cell"
@@ -140,22 +143,22 @@ export function DesignerStoryboardTableDraft({ text, disabled = false, onChange 
                       onChange={(event) => setCell(rowIndex, cellIndex, sanitizeMarkdownTableCell(event.target.value))}
                     />
                   </div>
+                  {cellIndex === row.length - 1 ? (
+                    <button
+                      type="button"
+                      className="btn designer-storyboard-table__row-delete"
+                      disabled={disabled || table.rows.length <= 1}
+                      aria-label={t('designer.materials.deleteTableRow', { row: rowIndex + 1 })}
+                      title={t('designer.materials.deleteTableRow', { row: rowIndex + 1 })}
+                      data-testid="designer-storyboard-table-draft-delete-row"
+                      data-variant={String(rowIndex + 1)}
+                      onClick={() => commit(table.rows.filter((_, index) => index !== rowIndex))}
+                    >
+                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                    </button>
+                  ) : null}
                 </td>
               ))}
-              <td>
-                <button
-                  type="button"
-                  className="btn designer-storyboard-table__row-delete"
-                  disabled={disabled || table.rows.length <= 1}
-                  aria-label={t('designer.materials.deleteTableRow', { row: rowIndex + 1 })}
-                  title={t('designer.materials.deleteTableRow', { row: rowIndex + 1 })}
-                  data-testid="designer-storyboard-table-draft-delete-row"
-                  data-variant={String(rowIndex + 1)}
-                  onClick={() => commit(table.rows.filter((_, index) => index !== rowIndex))}
-                >
-                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-                </button>
-              </td>
             </tr>
           ))}
         </tbody>

@@ -1381,7 +1381,7 @@
 }
 
 .designer-storyboard-table__cell::after {
-  content: attr(data-value) ' ';
+  content: attr(data-value);
   visibility: hidden;
   white-space: pre-wrap;
 }
@@ -1390,7 +1390,7 @@
 .designer-storyboard-table__cell-input {
   grid-area: 1 / 1 / 2 / 2;
   box-sizing: border-box;
-  min-width: 3em;
+  min-width: 2.5em;
   padding: 3px 5px;
   border: 1px solid transparent;
   font: inherit;
@@ -1407,13 +1407,38 @@
   resize: none;
 }
 
+.designer-storyboard-table__cell-input:hover {
+  border-color: var(--color-border-hover);
+}
+
 .designer-storyboard-table__cell-input:focus {
   outline: none;
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-focus);
   background: var(--color-surface-card);
 }
 
-.designer-storyboard-table__row-delete,
+/* The delete button overlays the row's last cell so it adds no column width or row height. */
+.designer-storyboard-table__row-end {
+  position: relative;
+}
+
+.designer-storyboard-table__row-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  line-height: 0;
+  background: var(--color-surface-card);
+  opacity: 0;
+}
+
+.designer-storyboard-table--editing tr:hover .designer-storyboard-table__row-delete,
+.designer-storyboard-table--editing tr:focus-within .designer-storyboard-table__row-delete {
+  opacity: 1;
+}
+
 .designer-storyboard-table__row-add {
   display: inline-flex;
   align-items: center;
