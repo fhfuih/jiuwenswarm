@@ -59,7 +59,6 @@ STORYBOARD_COLUMNS: tuple[tuple[str, str], ...] = (
     ("on_screen", "On screen"),
     ("character_action", "Character action"),
     ("speech", "Speech"),
-    ("scene_change", "Shot consistency"),
 )
 
 _TABLE_SEP_CELL = re.compile(r"^:?-{3,}:?$")
@@ -73,7 +72,6 @@ class StoryboardShot(TypedDict):
     on_screen: str
     character_action: str
     speech: str
-    scene_change: str
 
 
 _FIELD_BY_HEADER: dict[str, str] = {
@@ -99,7 +97,6 @@ def _empty_shot() -> StoryboardShot:
         "on_screen": "",
         "character_action": "",
         "speech": "",
-        "scene_change": "",
     }
 
 
@@ -185,8 +182,6 @@ def render_storyboard_table(
             for cid, line in by_char.items()
             if str(line).strip()
         ) or str(shot.get("speech_line") or "").strip()
-        lock = shot.get("continuity_lock") if isinstance(shot.get("continuity_lock"), dict) else {}
-        consistency = "; ".join(f"{k}: {v}" for k, v in lock.items() if str(v).strip())
         row = {
             "shot_no": shot.get("shot_index") or position,
             "timeline": shot.get("timeline"),
@@ -195,7 +190,6 @@ def render_storyboard_table(
             "on_screen": ", ".join(on_screen),
             "character_action": action,
             "speech": speech,
-            "scene_change": consistency,
         }
         lines.append(
             "| " + " | ".join(_table_cell(row[field]) for field, _ in STORYBOARD_COLUMNS) + " |"
@@ -215,7 +209,6 @@ def shot_generate_prompt(shot: StoryboardShot) -> str:
         ("On screen", "on_screen"),
         ("Character action", "character_action"),
         ("Speech", "speech"),
-        ("Shot consistency", "scene_change"),
     ):
         value = str(shot.get(key) or "").strip()
         if value:

@@ -22,10 +22,10 @@ from jiuwenswarm.server.runtime.designer.handlers.types import NodeExecutionCont
 
 
 def _sb_md() -> str:
-    return """| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 0-5s | wide | pan left | Pastor | Pastor speaks from pulpit, congregation seated | Pastor: Welcome. | hold |
-| 2 | 5-10s | medium | static | Woman | Woman wipes tears, nods |  | hold |
+    return """| Shot | Timeline | Camera | Move | On screen | Character action | Speech |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0-5s | wide | pan left | Pastor | Pastor speaks from pulpit, congregation seated | Pastor: Welcome. |
+| 2 | 5-10s | medium | static | Woman | Woman wipes tears, nods |  |
 """
 
 
@@ -142,10 +142,10 @@ def test_sync_shot_nodes_from_storyboard_markdown():
 
 
 def test_parse_reads_every_row_of_the_table():
-    rows = "\n".join(f"| {i} | {i}-{i + 1}s | wide | static | A | act {i} |  | hold |" for i in range(1, 11))
+    rows = "\n".join(f"| {i} | {i}-{i + 1}s | wide | static | A | act {i} |  |" for i in range(1, 11))
     text = (
-        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
         f"{rows}\n"
     )
     shots = parse_storyboard_shots(text)
@@ -178,7 +178,7 @@ def test_render_storyboard_table_round_trips_through_the_parser():
     ]
     text = render_storyboard_table(shots, characters)
     assert text.splitlines()[0] == (
-        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |"
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |"
     )
     parsed = parse_storyboard_shots(text)
     assert len(parsed) == 2
@@ -186,7 +186,7 @@ def test_render_storyboard_table_round_trips_through_the_parser():
     assert parsed[0]["on_screen"] == "Mia, Leo"
     assert parsed[0]["character_action"] == "Mia hands Leo a letter Doing: Leo: reads / frowns"
     assert parsed[0]["speech"] == "Mia: Read it."
-    assert parsed[0]["scene_change"] == "forbid: no rain"
+    assert "no rain" not in text
     assert parsed[1]["character_action"] == "Leo looks up"
     assert parsed[1]["speech"] == "Leo: Why?"
 

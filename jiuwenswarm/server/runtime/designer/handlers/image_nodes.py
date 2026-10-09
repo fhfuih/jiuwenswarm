@@ -177,7 +177,7 @@ def _shot_frame_prompt(
         f"camera {shot['camera'] or 'unspecified'}; "
         f"camera move {shot['move'] or 'unspecified'}; "
         f"character action {shot['character_action'] or 'unspecified'}; "
-        f"scene change {shot['scene_change'] or 'unspecified'}."
+        f"scene change {shot.get('scene_change') or 'unspecified'}."
     )
     n_refs = max(1, int(character_ref_count or 1))
     prior_edit = keyframe_strategy == "edit_prior_keyframe"

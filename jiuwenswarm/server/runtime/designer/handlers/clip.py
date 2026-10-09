@@ -449,7 +449,6 @@ def _format_shot_block(shot: StoryboardShot, shot_index: int) -> str:
         f"- Camera move: {shot.get('move') or ''}",
         f"- On screen: {shot.get('on_screen') or ''}",
         f"- Character action: {shot.get('character_action') or ''}",
-        f"- Shot consistency: {shot.get('scene_change') or ''}",
     ]
     return "\n".join(lines)
 

@@ -79,11 +79,11 @@ def stub_clip_video(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_text(prompt: str, max_tokens: int = 1200) -> str:
         if "分镜" in prompt or "运镜" in prompt or "Storyboard" in prompt:
             return (
-                "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
-                "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-                "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  | 站台 |\n"
-                "| 2 | 2.0-3.5s | 中景/平视 | 跟移 | 主体 | 主体入画 |  | 出站 |\n"
-                "| 3 | 3.5-5.0s | 近景/平视 | 固定 | 主体 | 转身 |  | 月台 |\n"
+                "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |\n"
+                "| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  |\n"
+                "| 2 | 2.0-3.5s | 中景/平视 | 跟移 | 主体 | 主体入画 |  |\n"
+                "| 3 | 3.5-5.0s | 近景/平视 | 固定 | 主体 | 转身 |  |\n"
             )
         return f"# stub\n{prompt[:80]}"
 
@@ -428,10 +428,10 @@ def test_expand_shots_keeps_director_topology_and_syncs_prompts(
     story.write_text(
         "# Storyboard\n\n"
         "## Storyboard\n\n"
-        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-        "| 1 | 0.0-4.0s | wide | hold | Ann | enter |  | hold |\n"
-        "| 2 | 4.0-8.0s | medium | push | Ann | walk |  | hold |\n",
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| 1 | 0.0-4.0s | wide | hold | Ann | enter |  |\n"
+        "| 2 | 4.0-8.0s | medium | push | Ann | walk |  |\n",
         encoding="utf-8",
     )
     executor = GraphExecutor(designer_store)
@@ -460,7 +460,7 @@ def test_expand_shots_keeps_director_topology_and_syncs_prompts(
     assert ((clip.get("config") or {}).get("generate") or {}) == {
         "prompt": (
             "Timeline 0.0-4.0s; Camera wide; Camera move hold; On screen Ann; "
-            "Character action enter; Shot consistency hold"
+            "Character action enter"
         ),
         "prompt_origin": "storyboard",
     }

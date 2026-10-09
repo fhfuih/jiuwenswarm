@@ -132,10 +132,10 @@ async def test_clip_handler_sends_scene_plate_and_storyboard_as_multimodal(
     story = tmp_path / "storyboard.md"
     scene.write_bytes(b"png-scene")
     story.write_text(
-        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  | 站台 |\n"
-        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  | 出站 |\n",
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  |\n"
+        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  |\n",
         encoding="utf-8",
     )
     video = tmp_path / "generated_clip.mp4"
@@ -493,10 +493,10 @@ async def test_clip_handler_uses_scene_plate_and_storyboard_duration_for_shot(
     story = tmp_path / "storyboard.md"
     scene.write_bytes(b"png-scene")
     story.write_text(
-        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |\n"
-        "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  | 站台 |\n"
-        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  | 出站 |\n",
+        "| Shot | Timeline | Camera | Move | On screen | Character action | Speech |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| 1 | 0.0-2.0s | 全景/平视 | 缓摇 |  | 未入画 |  |\n"
+        "| 2 | 2.0-5.0s | 中景/平视 | 跟移 | 主体 | 主体入画 |  |\n",
         encoding="utf-8",
     )
     video = tmp_path / "generated_clip_2.mp4"

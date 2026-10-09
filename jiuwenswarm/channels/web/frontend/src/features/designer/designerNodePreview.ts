@@ -24,7 +24,7 @@ export function storyboardShotPreviews(
         shotNo: String(shot.shot_no || '').trim(),
         timeline: String(shot.timeline || '').trim(),
         action: String(shot.character_action || '').trim(),
-        picture: String(shot.scene_change || camera || '').trim(),
+        picture: camera,
       };
     })
     .filter((shot) => shot.shotNo || shot.timeline || shot.action || shot.picture);

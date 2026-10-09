@@ -13,7 +13,6 @@ export type StoryboardShot = {
   on_screen: string;
   character_action: string;
   speech: string;
-  scene_change: string;
 };
 
 export const STORYBOARD_COLUMNS: ReadonlyArray<readonly [keyof StoryboardShot, string]> = [
@@ -24,12 +23,16 @@ export const STORYBOARD_COLUMNS: ReadonlyArray<readonly [keyof StoryboardShot, s
   ['on_screen', 'On screen'],
   ['character_action', 'Character action'],
   ['speech', 'Speech'],
-  ['scene_change', 'Shot consistency'],
 ];
 
 const FIELD_BY_HEADER = new Map<string, keyof StoryboardShot>(
   STORYBOARD_COLUMNS.map(([field, header]) => [header.toLowerCase(), field]),
 );
+
+/** Storyboard field for a canonical table header, or null for any other header. */
+export function storyboardColumnField(header: string): keyof StoryboardShot | null {
+  return FIELD_BY_HEADER.get(header.trim().toLowerCase()) ?? null;
+}
 
 function emptyShot(): StoryboardShot {
   return {
@@ -40,7 +43,6 @@ function emptyShot(): StoryboardShot {
     on_screen: '',
     character_action: '',
     speech: '',
-    scene_change: '',
   };
 }
 
@@ -98,7 +100,6 @@ export function shotGeneratePrompt(shot: StoryboardShot): string {
     ['On screen', 'on_screen'],
     ['Character action', 'character_action'],
     ['Speech', 'speech'],
-    ['Shot consistency', 'scene_change'],
   ];
   fields.forEach(([label, key]) => {
     const value = (shot[key] || '').trim();

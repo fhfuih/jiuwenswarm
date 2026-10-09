@@ -38,50 +38,37 @@ test('bootstrap thinking canvas never reuses another project graph', () => {
   assert.equal(next.description, '新的情人节短片');
 });
 
-const STORYBOARD_HEADER =
-  '| Shot | Timeline | Camera | Move | On screen | Character action | Speech | Shot consistency |';
-const STORYBOARD_SEPARATOR = '| --- | --- | --- | --- | --- | --- | --- | --- |';
+const STORYBOARD_HEADER = '| Shot | Timeline | Camera | Move | On screen | Character action | Speech |';
+const STORYBOARD_SEPARATOR = '| --- | --- | --- | --- | --- | --- | --- |';
 
-test('storyboardShotPreviews shows action and shot consistency from the storyboard columns', () => {
+test('storyboardShotPreviews shows action and camera from the storyboard columns', () => {
   const shots = storyboardShotPreviews(
     [
       STORYBOARD_HEADER,
       STORYBOARD_SEPARATOR,
-      '| 1 | 0.0-2.0s | wide | static | Ann | steps off the train | | platform morning light |',
-      '| 2 | 2.0-5.0s | medium | pan | Ann | walks toward the exit | "Home." | same station |',
+      '| 1 | 0.0-2.0s | wide / eye-level | slow pan | Ann | steps off the train | |',
+      '| 2 | 2.0-5.0s | medium | | Ann | walks toward the exit | "Home." |',
     ].join('\n'),
   );
   assert.equal(shots.length, 2);
   assert.equal(shots[0].shotNo, '1');
   assert.equal(shots[0].action, 'steps off the train');
-  assert.equal(shots[0].picture, 'platform morning light');
-  assert.equal(shots[1].action, 'walks toward the exit');
-});
-
-test('storyboardShotPreviews falls back to camera when shot consistency is empty', () => {
-  const shots = storyboardShotPreviews(
-    [
-      STORYBOARD_HEADER,
-      STORYBOARD_SEPARATOR,
-      '| 1 | 0.0-2.0s | wide / eye-level | slow pan | Ann | steps off the train | | |',
-    ].join('\n'),
-  );
-  assert.equal(shots.length, 1);
-  assert.equal(shots[0].action, 'steps off the train');
   assert.equal(shots[0].picture, 'wide / eye-level / slow pan');
+  assert.equal(shots[1].action, 'walks toward the exit');
+  assert.equal(shots[1].picture, 'medium');
 });
 
 test('storyboardShotPreviews keeps every row', () => {
   const rows = Array.from(
     { length: 10 },
-    (_, index) => `| ${index + 1} | ${index}.0s | wide | hold | Ann | beat ${index + 1} | | |`,
+    (_, index) => `| ${index + 1} | ${index}.0s | wide | hold | Ann | beat ${index + 1} | |`,
   );
   const shots = storyboardShotPreviews([STORYBOARD_HEADER, STORYBOARD_SEPARATOR, ...rows].join('\n'), 20);
   assert.equal(shots.length, 10);
   assert.equal(shots[9].action, 'beat 10');
 });
 
-test('empty storyboard table is a blank eight-column frame', () => {
+test('empty storyboard table is a blank seven-column frame', () => {
   assert.deepEqual(EMPTY_STORYBOARD_TABLE.headers, [
     'Shot',
     'Timeline',
@@ -90,10 +77,9 @@ test('empty storyboard table is a blank eight-column frame', () => {
     'On screen',
     'Character action',
     'Speech',
-    'Shot consistency',
   ]);
   assert.equal(EMPTY_STORYBOARD_TABLE.rows.length, 2);
-  assert.ok(EMPTY_STORYBOARD_TABLE.rows.every((row) => row.length === 8 && row.every((cell) => cell === '')));
+  assert.ok(EMPTY_STORYBOARD_TABLE.rows.every((row) => row.length === 7 && row.every((cell) => cell === '')));
 });
 
 test('serializeMarkdownTable round-trips edited cells and added or removed rows', () => {
@@ -101,14 +87,14 @@ test('serializeMarkdownTable round-trips edited cells and added or removed rows'
     [
       STORYBOARD_HEADER,
       STORYBOARD_SEPARATOR,
-      '| 1 | 0.0-2.0s | wide | static | Ann | steps off the train | | platform |',
-      '| 2 | 2.0-5.0s | medium | pan | Ann | walks to the exit | | station |',
+      '| 1 | 0.0-2.0s | wide | static | Ann | steps off the train | |',
+      '| 2 | 2.0-5.0s | medium | pan | Ann | walks to the exit | |',
     ].join('\n'),
   );
   assert.ok(table);
   const rows = [
     table.rows[0].map((cell, index) => (index === 5 ? 'steps off | the\ntrain' : cell)),
-    ['3', '5.0-7.0s', '', '', '', 'waves', '', ''],
+    ['3', '5.0-7.0s', '', '', '', 'waves', ''],
   ];
   const text = serializeMarkdownTable({ headers: table.headers, rows });
   assert.ok(text.startsWith(`${STORYBOARD_HEADER}\n${STORYBOARD_SEPARATOR}\n`));
@@ -117,7 +103,7 @@ test('serializeMarkdownTable round-trips edited cells and added or removed rows'
   assert.deepEqual(reparsed.headers, table.headers);
   assert.equal(reparsed.rows.length, 2);
   assert.equal(reparsed.rows[0][5], 'steps off / the train');
-  assert.deepEqual(reparsed.rows[1], ['3', '5.0-7.0s', '', '', '', 'waves', '', '']);
+  assert.deepEqual(reparsed.rows[1], ['3', '5.0-7.0s', '', '', '', 'waves', '']);
   const shots = storyboardShotPreviews(text);
   assert.deepEqual(
     shots.map((shot) => shot.shotNo),
