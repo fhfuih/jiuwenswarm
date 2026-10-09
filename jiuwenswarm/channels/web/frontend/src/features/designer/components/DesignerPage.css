@@ -1371,20 +1371,40 @@
 }
 
 .designer-storyboard-table--editing td {
-  padding: 2px;
+  padding: 0;
+}
+
+/* Textarea and a hidden copy of its text share one grid cell, so the cell
+   keeps the read-only table's content-based column width and row height. */
+.designer-storyboard-table__cell {
+  display: grid;
+}
+
+.designer-storyboard-table__cell::after {
+  content: attr(data-value) ' ';
+  visibility: hidden;
+  white-space: pre-wrap;
+}
+
+.designer-storyboard-table__cell::after,
+.designer-storyboard-table__cell-input {
+  grid-area: 1 / 1 / 2 / 2;
+  box-sizing: border-box;
+  min-width: 3em;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  font: inherit;
+  line-height: inherit;
 }
 
 .designer-storyboard-table__cell-input {
-  box-sizing: border-box;
   width: 100%;
-  min-width: 96px;
-  padding: 4px 6px;
-  border: 1px solid transparent;
+  height: 100%;
+  overflow: hidden;
   border-radius: 4px;
   background: transparent;
   color: inherit;
-  font: inherit;
-  resize: vertical;
+  resize: none;
 }
 
 .designer-storyboard-table__cell-input:focus {

@@ -7,6 +7,16 @@ import {
   serializeMarkdownTable,
   type MarkdownTablePreview,
 } from './designerNodePreview';
+import { storyboardColumnField } from './storyboardShots';
+
+/** Display label for a header; the file keeps the canonical English header. */
+function useColumnLabel(): (header: string) => string {
+  const { t } = useTranslation();
+  return (header) => {
+    const field = storyboardColumnField(header);
+    return field ? t(`designer.storyboard.columns.${field}`) : header;
+  };
+}
 
 type DesignerStoryboardTableProps = {
   text: string;
@@ -15,6 +25,7 @@ type DesignerStoryboardTableProps = {
 };
 
 export function DesignerStoryboardTable({ text, testId, layout }: DesignerStoryboardTableProps) {
+  const columnLabel = useColumnLabel();
   const table = parseMarkdownTable(text);
   if (!table) {
     return (
@@ -37,7 +48,7 @@ export function DesignerStoryboardTable({ text, testId, layout }: DesignerStoryb
         <tr>
           {table.headers.map((header, index) => (
             <th key={index} scope="col" data-testid={`${testId}-header`} data-variant={header}>
-              {header}
+              {columnLabel(header)}
             </th>
           ))}
         </tr>
@@ -64,6 +75,7 @@ type DesignerStoryboardTableDraftProps = {
 /** Edits cells and adds/removes rows; the header row and column order are fixed. */
 export function DesignerStoryboardTableDraft({ text, disabled = false, onChange }: DesignerStoryboardTableDraftProps) {
   const { t } = useTranslation();
+  const columnLabel = useColumnLabel();
   const [table, setTable] = useState<MarkdownTablePreview | null>(() => parseMarkdownTable(text));
   const emitted = useRef(text);
 
@@ -104,7 +116,7 @@ export function DesignerStoryboardTableDraft({ text, disabled = false, onChange 
           <tr>
             {table.headers.map((header, index) => (
               <th key={index} scope="col" data-testid="designer-storyboard-table-draft-header" data-variant={header}>
-                {header}
+                {columnLabel(header)}
               </th>
             ))}
             <th scope="col" aria-hidden />
@@ -115,16 +127,19 @@ export function DesignerStoryboardTableDraft({ text, disabled = false, onChange 
             <tr key={rowIndex} data-testid="designer-storyboard-table-draft-row" data-variant={String(rowIndex + 1)}>
               {row.map((cell, cellIndex) => (
                 <td key={cellIndex}>
-                  <textarea
-                    className="designer-storyboard-table__cell-input"
-                    value={cell}
-                    rows={2}
-                    disabled={disabled}
-                    aria-label={`${table.headers[cellIndex] || ''} ${rowIndex + 1}`}
-                    data-testid="designer-storyboard-table-draft-cell"
-                    data-variant={`${rowIndex + 1}:${cellIndex + 1}`}
-                    onChange={(event) => setCell(rowIndex, cellIndex, sanitizeMarkdownTableCell(event.target.value))}
-                  />
+                  {/* The hidden copy of the text sizes the cell the way the read-only table does. */}
+                  <div className="designer-storyboard-table__cell" data-value={cell}>
+                    <textarea
+                      className="designer-storyboard-table__cell-input"
+                      value={cell}
+                      rows={1}
+                      disabled={disabled}
+                      aria-label={`${columnLabel(table.headers[cellIndex] || '')} ${rowIndex + 1}`}
+                      data-testid="designer-storyboard-table-draft-cell"
+                      data-variant={`${rowIndex + 1}:${cellIndex + 1}`}
+                      onChange={(event) => setCell(rowIndex, cellIndex, sanitizeMarkdownTableCell(event.target.value))}
+                    />
+                  </div>
                 </td>
               ))}
               <td>

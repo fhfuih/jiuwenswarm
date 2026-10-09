@@ -237,6 +237,17 @@
       "next": "下一张",
       "viewerIndex": "{{current}} / {{total}}"
     },
+    "storyboard": {
+      "columns": {
+        "shot_no": "镜号",
+        "timeline": "时间",
+        "camera": "景别/机位",
+        "move": "运镜",
+        "on_screen": "出镜角色",
+        "character_action": "角色动作",
+        "speech": "台词"
+      }
+    },
     "errors": {
       "runFailed": "启动运行失败",
       "rerunFailed": "重新生成失败",

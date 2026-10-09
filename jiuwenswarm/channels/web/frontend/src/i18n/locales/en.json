@@ -237,6 +237,17 @@
       "next": "Next",
       "viewerIndex": "{{current}} / {{total}}"
     },
+    "storyboard": {
+      "columns": {
+        "shot_no": "Shot",
+        "timeline": "Timeline",
+        "camera": "Camera",
+        "move": "Move",
+        "on_screen": "On screen",
+        "character_action": "Character action",
+        "speech": "Speech"
+      }
+    },
     "errors": {
       "runFailed": "Failed to start the run",
       "rerunFailed": "Failed to regenerate this node",
