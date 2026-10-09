@@ -30,6 +30,7 @@ import { designerEdgeTypes } from './edges/DesignerEdge';
 import { designerNodeTypes } from './nodes/designerNodes';
 import { DesignerCanvasDock } from './DesignerCanvasDock';
 import { DesignerActivityPeek } from './DesignerActivityPeek';
+import { localizeRunLeaderPeek } from '../designerActivity';
 import { selectLeaderPeek, useDesignerRunStore } from '../designerRunStore';
 import {
   DESIGNER_ASSET_DRAG_MIME,
@@ -123,7 +124,9 @@ function useFreshCanvasGlance(): { text: string; fading: boolean } {
 }
 
 function DesignerLeaderStrip() {
-  const peek = useDesignerRunStore((state) => selectLeaderPeek(state));
+  const { t } = useTranslation();
+  const rawPeek = useDesignerRunStore((state) => selectLeaderPeek(state));
+  const peek = useMemo(() => (rawPeek?.source === 'run' ? localizeRunLeaderPeek(rawPeek, t) : rawPeek), [rawPeek, t]);
   const bootstrapInProgress = useDesignerStore((state) => state.bootstrapInProgress);
   const glance = useFreshCanvasGlance();
   if (!glance.text && !peek && !bootstrapInProgress) return null;

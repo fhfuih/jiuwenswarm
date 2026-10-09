@@ -8,6 +8,36 @@ export type DesignerActivityItem = {
   at?: number;
 };
 
+// Must match the edit-handling leader texts emitted by the backend executor exactly.
+export const RUN_LEADER_EDIT_TEXTS: ReadonlySet<string> = new Set([
+  'Director · Reading brief and storyboard edits',
+  'Director · Rebuilding clips from the edited storyboard (LLM)',
+]);
+
+export function runLeaderActivityKey(text: string): string {
+  return RUN_LEADER_EDIT_TEXTS.has(text) ? 'designer.leader.reviewingEdits' : 'designer.leader.preparing';
+}
+
+/** Run-time leader steps are shown as one coarse phrase per phase, not the backend step text. */
+export function localizeRunLeaderPeek(
+  state: Pick<DesignerNodeState, 'activity' | 'activity_tail'>,
+  translate: (key: string) => string,
+): Pick<DesignerNodeState, 'activity' | 'activity_tail'> {
+  const tail: string[] = [];
+  for (const line of state.activity_tail || []) {
+    const text = String(line || '').trim();
+    if (!text) continue;
+    const localized = translate(runLeaderActivityKey(text));
+    if (tail[tail.length - 1] !== localized) tail.push(localized);
+  }
+  const latest = state.activity;
+  const latestText = String(latest?.text || '').trim();
+  return {
+    activity: latest && latestText ? { ...latest, text: translate(runLeaderActivityKey(latestText)), tool: '' } : null,
+    activity_tail: tail,
+  };
+}
+
 export function isDesignerLeaderNodeId(nodeId: string | null | undefined): boolean {
   return String(nodeId || '').trim() === DESIGNER_LEADER_NODE_ID;
 }

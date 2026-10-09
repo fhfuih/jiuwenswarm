@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from jiuwenswarm.server.runtime.designer.handlers.common import path_from_uri
 from jiuwenswarm.common.schema.designer_graph import (
     CONFIG_DELEGATE_HANDLER,
     NODE_ROLE_CHARACTER_DESIGN,
@@ -1102,3 +1103,191 @@ async def test_subagent_delegate_uses_registered_runner(
         assert text.startswith("FROM_SUBAGENT:")
     finally:
         register_designer_subagent_runner(None)
+
+
+def _storyboard_table(rows: list[tuple[str, str, str]]) -> str:
+    lines = [
+        "## Storyboard",
+        "",
+        "| Shot | Timeline | Camera | Move | Character action | Shot consistency | Comment |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for index, (timeline, camera, action) in enumerate(rows, start=1):
+        lines.append(f"| {index} | {timeline} | {camera} | static | {action} | hold | {action} |")
+    return "\n".join(lines) + "\n"
+
+
+def _bootstrapped_graph(designer_store: DesignerGraphStore) -> DesignerExecutionGraph:
+    graph = _handler_graph(make_pipeline_graph(project_id="proj_handoff", prompt="handoff film"))
+    clip_indices = sorted(
+        int((node.get("config") or {}).get("shot_index") or 0)
+        for node in graph["nodes"]
+        if node_pipeline(node) == NODE_ROLE_CLIP
+    )
+    rows = [(f"{(i - 1) * 4}.0-{i * 4}.0s", "medium / eye-level", f"Lead acts {i}") for i in clip_indices]
+    meta = dict(graph.get("metadata") or {})
+    meta["approved_brief"] = "# Brief\n\nA lead opens a door."
+    meta["approved_storyboard"] = _storyboard_table(rows)
+    meta["freeze_shot_topology"] = True
+    meta["director_composed_on_bootstrap"] = True
+    graph["metadata"] = meta
+    return designer_store.save_graph(graph)
+
+
+@pytest.fixture()
+def director_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    from jiuwenswarm.server.runtime.designer.orchestration import Director
+
+    calls: list[str] = []
+
+    def record(name: str):
+        async def phase(self: Director, graph: DesignerExecutionGraph, *args, **kwargs) -> dict:
+            calls.append(name)
+            if name == "review_storyboard_once":
+                graph["metadata"] = {**(graph.get("metadata") or {}), "storyboard_reviewed": True}
+            return {}
+
+        return phase
+
+    for name in ("plan", "validate_plan", "review_storyboard_once", "design_execution_graph"):
+        monkeypatch.setattr(Director, name, record(name))
+    return calls
+
+
+_READING_EDITS = "Director · Reading brief and storyboard edits"
+
+
+def _leader_texts(run: dict) -> list[str]:
+    log = (run["node_states"].get("__leader__") or {}).get("activity_log") or []
+    return [str(item.get("text") or "") for item in log]
+
+
+async def _continue(executor: GraphExecutor, run_id: str) -> dict:
+    await executor.start_run(run_id)
+    task = executor._tasks.get(run_id)
+    if task is not None:
+        await task
+    return executor._store.get_run(run_id)
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_materializes_brief_and_storyboard_as_completed_nodes(
+    designer_store: DesignerGraphStore, stub_clip_video: None
+) -> None:
+    graph = _bootstrapped_graph(designer_store)
+    executor = GraphExecutor(designer_store)
+
+    run = await executor.materialize_director_text(graph)
+
+    states = run["node_states"]
+    for node_id in ("n_brief", "n_storyboard"):
+        assert states[node_id]["status"] == NODE_STATUS_COMPLETED
+        uri = (states[node_id].get("output_ref") or {}).get("uri") or ""
+        assert uri.startswith("file:")
+    assert path_from_uri(states["n_brief"]["output_ref"]["uri"]).read_text(
+        encoding="utf-8"
+    ).startswith("# Brief")
+    others = {nid: st for nid, st in states.items() if nid not in {"n_brief", "n_storyboard"}}
+    assert others and all(st["status"] == "pending" for st in others.values())
+    handoff = run["metadata"]["director_text_handoff"]
+    assert set(handoff["texts"]) == {"n_brief", "n_storyboard"}
+    assert designer_store.get_latest_run_for_graph(graph["graph_id"])["run_id"] == run["run_id"]
+
+
+@pytest.mark.asyncio
+async def test_first_continue_after_bootstrap_skips_planning_and_reviews_storyboard(
+    designer_store: DesignerGraphStore, stub_clip_video: None, director_calls: list[str]
+) -> None:
+    graph = _bootstrapped_graph(designer_store)
+    executor = GraphExecutor(designer_store)
+    run = await executor.materialize_director_text(graph)
+    brief_uri = run["node_states"]["n_brief"]["output_ref"]["uri"]
+
+    finished = await _continue(executor, run["run_id"])
+
+    assert finished["status"] == RUN_STATUS_COMPLETED
+    assert "plan" not in director_calls
+    assert "validate_plan" not in director_calls
+    assert director_calls.count("review_storyboard_once") == 1
+    assert finished["node_states"]["n_brief"]["output_ref"]["uri"] == brief_uri
+    assert "director_text_handoff" not in (finished.get("metadata") or {})
+    assert finished["node_states"]["__leader__"]["status"] == NODE_STATUS_COMPLETED
+    assert _READING_EDITS not in _leader_texts(finished)
+
+
+@pytest.mark.asyncio
+async def test_first_continue_adopts_edited_clip_content(
+    designer_store: DesignerGraphStore, stub_clip_video: None, director_calls: list[str]
+) -> None:
+    graph = _bootstrapped_graph(designer_store)
+    executor = GraphExecutor(designer_store)
+    run = await executor.materialize_director_text(graph)
+    sb_path = path_from_uri(run["node_states"]["n_storyboard"]["output_ref"]["uri"])
+    brief_path = path_from_uri(run["node_states"]["n_brief"]["output_ref"]["uri"])
+    edited = sb_path.read_text(encoding="utf-8").replace(
+        "| 1 | 0.0-4.0s | medium / eye-level |", "| 1 | 0.0-4.0s | close-up / low angle |"
+    )
+    sb_path.write_text(edited, encoding="utf-8")
+    brief_path.write_text("# Brief\n\nA lead slams a door.", encoding="utf-8")
+
+    finished = await _continue(executor, run["run_id"])
+
+    assert _READING_EDITS in _leader_texts(finished)
+    saved = designer_store.get_graph(graph["graph_id"])
+    meta = saved["metadata"]
+    assert "close-up / low angle" in meta["approved_storyboard"]
+    assert meta["approved_brief"] == "# Brief\n\nA lead slams a door."
+    clip = next(
+        node
+        for node in saved["nodes"]
+        if node_pipeline(node) == NODE_ROLE_CLIP and node["config"].get("shot_index") == 1
+    )
+    assert clip["config"]["camera"] == "close-up / low angle"
+    assert "plan" not in director_calls
+    assert "design_execution_graph" not in director_calls
+
+
+@pytest.mark.asyncio
+async def test_first_continue_redesigns_and_replans_when_storyboard_adds_a_clip(
+    designer_store: DesignerGraphStore, stub_clip_video: None, director_calls: list[str]
+) -> None:
+    graph = _bootstrapped_graph(designer_store)
+    executor = GraphExecutor(designer_store)
+    run = await executor.materialize_director_text(graph)
+    sb_path = path_from_uri(run["node_states"]["n_storyboard"]["output_ref"]["uri"])
+    text = sb_path.read_text(encoding="utf-8")
+    shots = text.count("| Lead acts ")
+    extra = f"| {shots + 1} | 90.0-94.0s | wide / high | static | Lead leaves | hold | Lead leaves |\n"
+    head, sep, tail = text.partition("\n\n## Production Lock Bible")
+    sb_path.write_text(head.rstrip("\n") + "\n" + extra + sep + tail, encoding="utf-8")
+
+    await _continue(executor, run["run_id"])
+
+    assert director_calls.index("design_execution_graph") < director_calls.index("plan")
+    assert director_calls.index("plan") < director_calls.index("validate_plan")
+    meta = designer_store.get_graph(graph["graph_id"])["metadata"]
+    assert "Lead leaves" in meta["approved_storyboard"]
+
+
+@pytest.mark.asyncio
+async def test_first_continue_replans_after_canvas_topology_edit(
+    designer_store: DesignerGraphStore, stub_clip_video: None, director_calls: list[str]
+) -> None:
+    graph = _bootstrapped_graph(designer_store)
+    executor = GraphExecutor(designer_store)
+    run = await executor.materialize_director_text(graph)
+    edited = designer_store.get_graph(graph["graph_id"])
+    edited["nodes"].append(
+        {
+            "id": "n_user_note",
+            "type": NODE_TYPE_TEXT,
+            "label": "note",
+            "config": {"role": "text", "prompt": "extra note", "force_handler": True},
+        }
+    )
+    designer_store.save_graph(edited)
+
+    await _continue(executor, run["run_id"])
+
+    assert "plan" in director_calls
+    assert "validate_plan" in director_calls

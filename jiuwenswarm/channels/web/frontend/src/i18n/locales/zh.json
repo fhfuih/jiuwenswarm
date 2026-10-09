@@ -87,6 +87,10 @@
       "disconnect": "已移除连线",
       "replace": "已替换输出"
     },
+    "leader": {
+      "reviewingEdits": "正在检阅你的更改…",
+      "preparing": "导演正在准备执行…"
+    },
     "chat": {
       "title": "设计助手",
       "emptyHint": "需要帮你设计些什么？",

@@ -10,6 +10,7 @@ import {
   DESIGNER_NODE_STATUS_COMPLETED,
   DESIGNER_NODE_STATUS_FAILED,
   DESIGNER_NODE_STATUS_PENDING,
+  DESIGNER_NODE_STATUS_RUNNING,
   DESIGNER_RUN_STATUS_RUNNING,
   type AssetRef,
   type DesignerExecutionGraph,
@@ -115,19 +116,12 @@ export const useDesignerRunStore = create<DesignerRunStore>((set, get) => ({
     if (run && graph && run.graph_id !== graph.graph_id) {
       return;
     }
-    const leader = run?.node_states?.[DESIGNER_LEADER_NODE_ID];
     const failureMessage = designerRunFailureMessage(run);
     set({
       ...applySnapshot(run, graph),
       // Async LLM/API failures arrive via designer.run.updated after start
       // succeeds — lift them into runError so DesignerPage can toast.
       runError: failureMessage,
-      ...(leader?.activity
-        ? {
-            leaderActivity: leader.activity,
-            leaderActivityTail: leader.activity_tail || [],
-          }
-        : {}),
     });
     clearPoll();
     if (run && isActiveDesignerRun(run.status)) {
@@ -404,17 +398,29 @@ export function bindDesignerRuntime(): () => void {
   return unbindRuntime;
 }
 
+export type DesignerLeaderPeek = Pick<DesignerNodeState, 'activity' | 'activity_tail'> & {
+  /** `run`: executor steps from the run's leader state; `chat`: bootstrap / chat-edit progress. */
+  source: 'run' | 'chat';
+};
+
 export function selectLeaderPeek(state: {
   nodeStates: Record<string, DesignerNodeState>;
   leaderActivity: DesignerNodeActivity | null;
   leaderActivityTail: string[];
-}): Pick<DesignerNodeState, 'activity' | 'activity_tail'> | null {
+}): DesignerLeaderPeek | null {
   const fromRun = state.nodeStates[DESIGNER_LEADER_NODE_ID];
-  if (fromRun?.activity || (fromRun?.activity_tail && fromRun.activity_tail.length > 0)) {
-    return { activity: fromRun.activity, activity_tail: fromRun.activity_tail };
+  if (
+    fromRun?.status === DESIGNER_NODE_STATUS_RUNNING &&
+    (fromRun.activity || (fromRun.activity_tail && fromRun.activity_tail.length > 0))
+  ) {
+    return { source: 'run', activity: fromRun.activity, activity_tail: fromRun.activity_tail };
   }
   if (state.leaderActivity || state.leaderActivityTail.length > 0) {
-    return { activity: state.leaderActivity || undefined, activity_tail: state.leaderActivityTail };
+    return {
+      source: 'chat',
+      activity: state.leaderActivity || undefined,
+      activity_tail: state.leaderActivityTail,
+    };
   }
   return null;
 }
