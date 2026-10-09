@@ -31,6 +31,12 @@ from jiuwenswarm.server.runtime.designer.user_references import carry_user_refer
 
 logger = logging.getLogger(__name__)
 
+_SHOT_TEXT_LANGUAGE_RULE = (
+    "Write every camera, action, and cast_actions value entirely in the "
+    "language of user_prompt, even where the approved brief or locks are in "
+    "another language; only ids, ratios such as 16:9, and timelines stay as-is. "
+)
+
 # Role → tool set for one-pass node agents (no feedback loop).
 _ROLE_TOOLS: dict[str, list[str]] = {
     "brief": ["call_model", "read_upstream"],
@@ -1478,7 +1484,9 @@ class Director:
                 "{id:{wardrobe,emotion,presence}}. Face stays the character sheet; "
                 "change wardrobe or emotion only when this shot's story changes them. "
                 "Shots are self-contained continuity windows — do not rely on prior "
-                "clip media. Film-wide locks: language_lock (e.g. en/zh — ALL dialogue in that "
+                "clip media. "
+                + _SHOT_TEXT_LANGUAGE_RULE
+                + "Film-wide locks: language_lock (e.g. en/zh — ALL dialogue in that "
                 "language), bgm_lock {mood,style,instruments,continuity,rule}, "
                 "include_speech, include_music. "
                 "Respond JSON only: "
@@ -3570,7 +3578,9 @@ class Director:
                 "Also approve/enforce film audio locks: language_lock (one language for all "
                 "speech), per-shot speech_by_character (exact lines for every speaking shot; "
                 "{} only when that shot has no speaker or the user asked for mime or no dialogue), and "
-                "film-wide bgm_lock. Respond JSON only: "
+                "film-wide bgm_lock. "
+                + _SHOT_TEXT_LANGUAGE_RULE
+                + "Respond JSON only: "
                 '{"ok":true,"shot_fixes":[{"shot_index":1,"action":"...","camera":"...",'
                 '"timeline":"<copy this shot timeline from the approved brief>",'
                 '"continuity_lock":{"forbid":"..."},'
@@ -3788,7 +3798,8 @@ class Director:
             "(7) GRAPH USEFULNESS: every node must be useful for the final compose shot — "
             "list prune_ids for unused/orphan nodes; after prune the remaining graph must stay "
             "coherent (master scene → shot views → frames → shots → compose). "
-            "Respond JSON only: "
+            + _SHOT_TEXT_LANGUAGE_RULE
+            + "Respond JSON only: "
             '{"ok":true|false,"issues":["..."],"prune_ids":["n_unused"],'
             '"spatial_lock":{"landmarks":"...","layout":"...","light":"...","static_rule":"..."},'
             '"shot_fixes":[{"shot_index":1,"character_ids":["char_1"],'
