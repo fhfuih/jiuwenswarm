@@ -12,7 +12,7 @@ class GenerateCharacter(Tool):
     """One generation call for this member. A second call returns an error dict."""
 
     def __init__(self) -> None:
-        timeout_s = float(node_tools().IMAGE_GENERATE_TIMEOUT_SECONDS)
+        timeout_s = float(node_tools().image_generate_timeout_seconds())
         super().__init__(
             ToolCard(
                 id="generate_character",

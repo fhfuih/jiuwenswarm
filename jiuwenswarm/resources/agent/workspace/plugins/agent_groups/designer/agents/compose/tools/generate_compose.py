@@ -12,7 +12,7 @@ class GenerateCompose(Tool):
     """One generation call for this member. A second call returns an error dict."""
 
     def __init__(self) -> None:
-        timeout_s = float(node_tools().VIDEO_GENERATE_TIMEOUT_SECONDS)
+        timeout_s = float(node_tools().video_generate_timeout_seconds())
         super().__init__(
             ToolCard(
                 id="generate_compose",
