@@ -24,12 +24,19 @@ returns a result dict and never raises.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+#: Wall-clock budget for clip / compose ``generate_*`` tools (AbilityManager
+#: ``resilience.timeout_s``). Matches ``media_generation``'s non-vLLM-Omni
+#: ``video_tool_timeout_seconds`` so a long cloud render is not cut at the
+#: default 300s tool timeout before the video poll finishes.
+VIDEO_GENERATE_TIMEOUT_SECONDS = 1500.0
 
 _TICKET_RE = re.compile(
     r"design:(?P<graph_id>[^:\s]+):(?P<run_id>[^:\s]+):(?P<node_id>[^:\s]+)"
@@ -403,6 +410,24 @@ async def generate_node_output(
         try:
             result, sent_prompt = await _run_handler(env, node, injected, kind)
             break
+        except asyncio.CancelledError:
+            # AbilityManager's fail_after cancels the invoke; without a note the
+            # node only shows the engine's "no structured_output" mask.
+            timeout_s = (
+                int(VIDEO_GENERATE_TIMEOUT_SECONDS) if kind == "video" else None
+            )
+            message = (
+                f"{member} generation timed out after {timeout_s}s"
+                if timeout_s is not None
+                else f"{member} generation timed out"
+            )
+            _note_member_error(env, node_id, message)
+            logger.warning(
+                "[design-tools] generate cancelled/timed out: node=%s member=%s",
+                node_id,
+                member,
+            )
+            raise
         except Exception as exc:  # noqa: BLE001 — a failed generation is an answer
             last_error = exc
             logger.warning(
@@ -594,6 +619,7 @@ def _read_text(ref: dict[str, Any]) -> str:
 
 __all__ = [
     "MEMBER_OUTPUT_KIND",
+    "VIDEO_GENERATE_TIMEOUT_SECONDS",
     "generate_node_output",
     "note_rejection",
     "read_node_context",
