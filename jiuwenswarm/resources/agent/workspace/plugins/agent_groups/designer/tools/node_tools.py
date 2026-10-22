@@ -80,14 +80,6 @@ def video_generate_timeout_seconds() -> float:
     return video_tool_timeout_seconds()
 
 
-def _generate_timeout_seconds(kind: str) -> float | None:
-    if kind == "image":
-        return image_generate_timeout_seconds()
-    if kind == "video":
-        return video_generate_timeout_seconds()
-    return None
-
-
 class _ToolError(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -427,17 +419,14 @@ async def generate_node_output(
             result, sent_prompt = await _run_handler(env, node, injected, kind)
             break
         except asyncio.CancelledError:
-            # AbilityManager's fail_after cancels the invoke; without a note the
-            # node only shows the engine's "no structured_output" mask.
-            timeout_s = _generate_timeout_seconds(kind)
-            message = (
-                f"{member} generation timed out after {int(timeout_s)}s"
-                if timeout_s is not None
-                else f"{member} generation timed out"
-            )
+            # CancelledError is shared by tool fail_after, the node wall-clock
+            # cap, and user/session stop — we cannot tell which here, so keep
+            # the note neutral. Without it the node only shows the engine's
+            # "no structured_output" mask.
+            message = f"{member} generation cancelled or timed out"
             _note_member_error(env, node_id, message)
             logger.warning(
-                "[design-tools] generate cancelled/timed out: node=%s member=%s",
+                "[design-tools] generate cancelled or timed out: node=%s member=%s",
                 node_id,
                 member,
             )
