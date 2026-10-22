@@ -127,7 +127,7 @@ async def test_media_generation_is_not_retried(node_tools, run_env, monkeypatch)
 async def test_video_generation_cancelled_records_a_specific_error(
     node_tools, run_env, monkeypatch
 ):
-    """AbilityManager fail_after cancels the invoke; keep a real cause, not the receipt mask."""
+    """Any CancelledError path must note a real cause, not the receipt mask."""
 
     async def cancelled(env, node, injected, kind):
         raise asyncio.CancelledError()
