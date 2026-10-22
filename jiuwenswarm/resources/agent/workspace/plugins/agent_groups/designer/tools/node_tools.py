@@ -32,11 +32,18 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Wall-clock budget for clip / compose ``generate_*`` tools (AbilityManager
-#: ``resilience.timeout_s``). Matches ``media_generation``'s non-vLLM-Omni
-#: ``video_tool_timeout_seconds`` so a long cloud render is not cut at the
-#: default 300s tool timeout before the video poll finishes.
+#: Wall-clock budgets for media ``generate_*`` tools (AbilityManager
+#: ``resilience.timeout_s``). Keep these above the handler's own wait so a
+#: long cloud job is not cut at the default 300s tool timeout.
+#: Image matches ``handlers.common._IMAGE_GEN_TIMEOUT_SECONDS``; video matches
+#: ``media_generation.video_tool_timeout_seconds`` for non-vLLM-Omni.
+IMAGE_GENERATE_TIMEOUT_SECONDS = 1200.0
 VIDEO_GENERATE_TIMEOUT_SECONDS = 1500.0
+
+_GENERATE_TIMEOUT_SECONDS_BY_KIND = {
+    "image": IMAGE_GENERATE_TIMEOUT_SECONDS,
+    "video": VIDEO_GENERATE_TIMEOUT_SECONDS,
+}
 
 _TICKET_RE = re.compile(
     r"design:(?P<graph_id>[^:\s]+):(?P<run_id>[^:\s]+):(?P<node_id>[^:\s]+)"
@@ -413,11 +420,9 @@ async def generate_node_output(
         except asyncio.CancelledError:
             # AbilityManager's fail_after cancels the invoke; without a note the
             # node only shows the engine's "no structured_output" mask.
-            timeout_s = (
-                int(VIDEO_GENERATE_TIMEOUT_SECONDS) if kind == "video" else None
-            )
+            timeout_s = _GENERATE_TIMEOUT_SECONDS_BY_KIND.get(kind)
             message = (
-                f"{member} generation timed out after {timeout_s}s"
+                f"{member} generation timed out after {int(timeout_s)}s"
                 if timeout_s is not None
                 else f"{member} generation timed out"
             )
@@ -618,6 +623,7 @@ def _read_text(ref: dict[str, Any]) -> str:
 
 
 __all__ = [
+    "IMAGE_GENERATE_TIMEOUT_SECONDS",
     "MEMBER_OUTPUT_KIND",
     "VIDEO_GENERATE_TIMEOUT_SECONDS",
     "generate_node_output",
