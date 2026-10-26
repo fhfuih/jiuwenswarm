@@ -429,11 +429,12 @@ def _tod_covered_in_text(text: str, cfg: dict[str, Any], lang: str = "en") -> bo
     pl = str(text or "").lower()
     payload = _time_of_day_payload(cfg)
     label = (payload.get("time_of_day") or "").lower()
-    if label and label != "unspecified" and label in pl:
-        return True
-    shown = localized_time_of_day(label, lang).lower()
-    if label and label != "unspecified" and shown and shown in pl:
-        return True
+    if label and label != "unspecified":
+        if label in pl:
+            return True
+        shown = localized_time_of_day(label, lang).lower()
+        if shown and shown in pl:
+            return True
     lighting = (payload.get("lighting") or "").lower()
     for word in (
         "night",
@@ -456,6 +457,17 @@ def _tod_covered_in_text(text: str, cfg: dict[str, Any], lang: str = "en") -> bo
     if lighting and any(tok in pl for tok in lighting.split()[:4] if len(tok) > 3):
         return True
     return False
+
+
+_CROWD_EXIT_CUES = ("already left", "clear of", "empty of extras", "crowd gone", "人群已经离开")
+_CROWD_IN_FRAME_CUES = ("extras", "crowd", "colleagues", "background", "群众", "人群")
+_CROWD_COVER_CUES: dict[str, tuple[str, ...]] = {
+    "exited": _CROWD_EXIT_CUES,
+    "empty": ("empty", "没有群众"),
+    "in_frame": _CROWD_IN_FRAME_CUES,
+    "background_hold": _CROWD_IN_FRAME_CUES,
+    "off_camera": ("off-camera", "off camera", "不在镜头内"),
+}
 
 
 def ensure_story_lock_coverage(
@@ -517,19 +529,11 @@ def ensure_story_lock_coverage(
     if hold and hold.lower() not in pl and not _BAD_DIRECTIVE.search(hold):
         # Avoid restating if disposition words already present.
         disp = str(crowd.get("disposition") or "").lower()
-        covered = False
-        if disp == "exited" and any(
-            w in pl for w in ("already left", "clear of", "empty of extras", "crowd gone", "人群已经离开")
-        ):
-            covered = True
-        if disp == "empty" and ("empty" in pl or "没有群众" in pl):
-            covered = True
-        if disp in {"in_frame", "background_hold"} and any(
-            w in pl for w in ("extras", "crowd", "colleagues", "background", "群众", "人群")
-        ):
-            covered = True
-        if disp == "off_camera" and ("off-camera" in pl or "off camera" in pl or "不在镜头内" in pl):
-            covered = True
+        cues = _CROWD_COVER_CUES.get(disp, ())
+        covered = any(w in pl for w in cues)
+        # "crowd gone" / "人群已经离开" contain the in-frame cues but say the opposite.
+        if covered and disp in {"in_frame", "background_hold"}:
+            covered = not any(w in pl for w in _CROWD_EXIT_CUES)
         if not covered:
             additions.append(sentence(hold, content_lang))
             notes.append("story_cover_crowd_state")
