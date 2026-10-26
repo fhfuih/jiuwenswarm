@@ -432,7 +432,7 @@ function DesignerCanvasInner({ graph }: DesignerCanvasProps) {
         <Background gap={20} size={1} />
         {canvasLocked || !minimapVisible ? null : (
           <MiniMap
-            position="bottom-right"
+            position="top-right"
             pannable
             zoomable
             className="designer-canvas__minimap"
@@ -441,7 +441,7 @@ function DesignerCanvasInner({ graph }: DesignerCanvasProps) {
         <Controls
           position="bottom-right"
           orientation="horizontal"
-          className={`designer-canvas__controls${minimapVisible && !canvasLocked ? ' designer-canvas__controls--below-minimap' : ''}`}
+          className="designer-canvas__controls"
           showInteractive={false}
         />
         {import.meta.env.DEV ? (
