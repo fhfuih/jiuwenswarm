@@ -449,7 +449,7 @@ def stamp_shot_states_on_clip_cfg(
         if pose:
             hold = (
                 pose
-                if pose.lower().startswith("already")
+                if pose.lower().startswith(("already", "已经"))
                 else phrase(_STORY_LINE_PHRASES, lang, "opening_hold", pose=strip_phrase(pose))
             )
             if hold not in holds:
