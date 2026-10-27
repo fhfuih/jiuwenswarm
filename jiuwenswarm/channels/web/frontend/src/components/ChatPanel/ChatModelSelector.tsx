@@ -34,12 +34,14 @@ function sameModelSelection(left: ModelSelection | null, right: ModelSelection |
 export default function ChatModelSelector({
   disabled = false,
   sessionId,
+  allowModelGroups = true,
 }: {
   disabled?: boolean;
   /** Session this selector edits. Surfaces that own a session (the design
    * canvas) pass it explicitly: `activeSessionId` follows the app route and can
    * point at another conversation while the surface stays mounted (#5394). */
   sessionId?: string;
+  allowModelGroups?: boolean;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const models = useSessionStore((state) => state.chatAvailableModels);
@@ -64,7 +66,7 @@ export default function ChatModelSelector({
   );
   const collaborationEnabled = useMultiModelCollaborationEnabled();
   const singleAgent = supportsMultiModelCollaboration(mode, cronId);
-  const includeModelGroups = !singleAgent || collaborationEnabled;
+  const includeModelGroups = allowModelGroups && (!singleAgent || collaborationEnabled);
   const groupBlocked = isConversationModelGroupBlocked({
     mode,
     cronId,
