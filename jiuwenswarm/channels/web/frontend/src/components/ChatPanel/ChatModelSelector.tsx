@@ -67,6 +67,7 @@ export default function ChatModelSelector({
   const collaborationEnabled = useMultiModelCollaborationEnabled();
   const singleAgent = supportsMultiModelCollaboration(mode, cronId);
   const includeModelGroups = allowModelGroups && (!singleAgent || collaborationEnabled);
+  const selectableGroups = allowModelGroups ? modelGroups : [];
   const groupBlocked = isConversationModelGroupBlocked({
     mode,
     cronId,
@@ -76,14 +77,15 @@ export default function ChatModelSelector({
 
   // Deleted/disabled model groups must fall back and be written back (#5424).
   useEffect(() => {
-    if (!boundSessionId || disabled || groupBlocked) return;
+    if (!boundSessionId || disabled) return;
+    if (groupBlocked && allowModelGroups) return;
     if (!selectedModelSelection) return;
     // Empty catalog means models.list has not arrived yet — not that the selection
     // was deleted. Clearing here races metadata restore on refresh (#5860).
     if (isModelCatalogPending(models, modelGroups)) return;
-    if (isModelSelectionAvailable(selectedModelSelection, models, modelGroups)) return;
+    if (isModelSelectionAvailable(selectedModelSelection, models, selectableGroups)) return;
     if (useChatStore.getState().getRuntime(boundSessionId)?.isProcessing) return;
-    const next = resolveAvailableModelSelection(selectedModelSelection, models, modelGroups);
+    const next = resolveAvailableModelSelection(selectedModelSelection, models, selectableGroups);
     if (sameModelSelection(next, selectedModelSelection)) return;
     setSelectionError('');
     if (!next) {
@@ -102,11 +104,12 @@ export default function ChatModelSelector({
     });
   }, [
     boundSessionId,
+    allowModelGroups,
     disabled,
     groupBlocked,
     selectedModelSelection,
     models,
-    modelGroups,
+    selectableGroups,
     setSelectedModelSelection,
     t,
   ]);
@@ -120,15 +123,15 @@ export default function ChatModelSelector({
   const catalogPending = isModelCatalogPending(models, modelGroups);
   const healedSelection = selectedModelSelection
     && !catalogPending
-    && !isModelSelectionAvailable(selectedModelSelection, models, modelGroups)
-    ? resolveAvailableModelSelection(selectedModelSelection, models, modelGroups)
+    && !isModelSelectionAvailable(selectedModelSelection, models, selectableGroups)
+    ? resolveAvailableModelSelection(selectedModelSelection, models, selectableGroups)
     : inferredSelection;
   const pickerSelection =
     singleAgent && collaborationEnabled && healedSelection?.type === 'model_group'
       ? { type: 'model_group' as const, id: healedSelection.id }
       : healedSelection;
   const hasSelectableGroup =
-    includeModelGroups && modelGroups.some((group) => group.enabled !== false && Boolean(group.model_group_id));
+    includeModelGroups && selectableGroups.some((group) => group.enabled !== false && Boolean(group.model_group_id));
   if (!selected && !pickerSelection && models.length === 0 && !hasSelectableGroup && !singleAgent) return null;
 
   const persistSelection = async (next: ModelSelection) => {
