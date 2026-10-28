@@ -15,7 +15,7 @@
   line-height: 20px;
 }
 
-/* Design 模式不支持归档：页面只承接历史归档数据的恢复与删除 */
+/* Design 模式不支持归档 */
 .archived-tasks__mode-note {
   margin: -4px 0 16px;
   padding: 8px 12px;
