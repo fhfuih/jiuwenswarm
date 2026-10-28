@@ -9,6 +9,7 @@ import logging
 import mimetypes
 from contextlib import contextmanager
 from contextvars import ContextVar
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import urlparse
@@ -49,17 +50,64 @@ def _clamp_max_tokens(value: int | None) -> int:
     return max(256, min(_DESIGNER_MAX_TOKENS_CAP, n))
 
 
-def _thinking_disabled_extra_body(api_base: str, model_name: str) -> dict[str, Any]:
-    """Send only the switch each provider honors so reasoning does not eat the output budget.
+# Subset of agent-core reasoning_profiles (REASONING_PROFILES / MODEL_REASONING_FALLBACKS)
+# for the "reasoning off" request; keep in sync when core changes those tables.
+_OPENROUTER_REASONING_MODELS = (
+    "openai/gpt-5.6-*",
+    "qwen/qwen3.8-max*",
+    "z-ai/glm-5.2*",
+    "deepseek/deepseek-v4-pro*",
+    "minimax/minimax-m3*",
+    "anthropic/claude-sonnet-4.5*",
+    "google/gemini-2.5-flash*",
+    "poolside/laguna-s-2.1*",
+)
+_CANNOT_DISABLE_THINKING_MODELS = (
+    "kimi-k3*",
+    "qwen3-vl-*-thinking*",
+    "kimi-k2.7-code*",
+    "kimi-k2-thinking*",
+    "minimax-m2*",
+    "minimax-m1*",
+    "codegeex-4*",
+    "doubao-1.5-pro*",
+    "qianfan-ocr-*",
+)
+_ENABLE_THINKING_MODELS = ("qwen3*", "qwen-plus*", "qwen-max*", "qwen-flash*")
+_GENERIC_ENDPOINT_PROFILES = {"", "openai", "openai-compatible"}
 
-    Unrecognized switches are not always ignored: DashScope-style proxies reject
-    ``enable_thinking=false`` with HTTP 400 for always-thinking models.
-    """
+
+def _reasoning_provider(api_base: str, endpoint_profile: str) -> str:
+    """Explicit endpoint_profile wins; otherwise infer the provider from the api_base host."""
+    profile = endpoint_profile.strip().lower().replace("_", "-")
+    if profile not in _GENERIC_ENDPOINT_PROFILES:
+        return profile
     host = (urlparse(api_base if "://" in api_base else f"https://{api_base}").hostname or "").lower()
     if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
-        return {"reasoning": {"enabled": False}}
-    model = model_name.strip().lower().rsplit("/", 1)[-1]
-    if model.startswith("qwen") and "thinking" not in model:
+        return "openrouter"
+    return profile
+
+
+def _thinking_disabled_extra_body(api_base: str, model_name: str, endpoint_profile: str = "") -> dict[str, Any]:
+    """Send only the switch the provider honors so reasoning does not eat the output budget.
+
+    Unrecognized switches are not always ignored: DashScope-style proxies reject
+    ``enable_thinking=false`` with HTTP 400 for always-thinking models, so models
+    that cannot disable thinking get no switch at all.
+    """
+    model = model_name.strip().lower()
+    short = model.rsplit("/", 1)[-1]
+
+    def matches(patterns: tuple[str, ...]) -> bool:
+        return any(fnmatchcase(model, p) or fnmatchcase(short, p) for p in patterns)
+
+    if _reasoning_provider(api_base, endpoint_profile) == "openrouter" and any(
+        fnmatchcase(model, p) for p in _OPENROUTER_REASONING_MODELS
+    ):
+        return {"reasoning": {"effort": "none"}}
+    if matches(_CANNOT_DISABLE_THINKING_MODELS):
+        return {}
+    if matches(_ENABLE_THINKING_MODELS):
         return {"enable_thinking": False}
     return {"thinking": {"type": "disabled"}}
 
@@ -463,6 +511,7 @@ async def call_model_tool(
     cfg = get_config() or {}
     defaults = (cfg.get("models") or {}).get("defaults") or []
     api_key = ""
+    endpoint_profile = ""
     api_base = str(chosen.get("api_base") or "")
     model_name = str(chosen.get("model_name") or chosen.get("id") or "")
     if isinstance(defaults, list) and defaults:
@@ -470,6 +519,7 @@ async def call_model_tool(
         if 0 <= idx < len(defaults) and isinstance(defaults[idx], dict):
             mcc = defaults[idx].get("model_client_config") or {}
             api_key = resolve_env_vars(str(mcc.get("api_key") or ""))
+            endpoint_profile = str(mcc.get("endpoint_profile") or "")
             if not api_base:
                 api_base = resolve_env_vars(str(mcc.get("api_base") or ""))
             if not model_name:
@@ -516,7 +566,7 @@ async def call_model_tool(
                     ],
                     "max_tokens": max_tokens,
                     "temperature": temperature,
-                    "extra_body": _thinking_disabled_extra_body(api_base, model_name),
+                    "extra_body": _thinking_disabled_extra_body(api_base, model_name, endpoint_profile),
                 }
                 from jiuwenswarm.server.runtime.designer.trajectory import (
                     current_trajectory_span,
