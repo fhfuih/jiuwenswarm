@@ -121,7 +121,7 @@ def _build_story_edit_tool(spawner: StoreNodeSpawner) -> Any:
     card = ToolCard(
         name=STORY_EDIT_TOOL_NAME,
         description=(
-            "修改故事层面的事实（人物的性别/身份/外貌/服装、地点、时间、情节等影响全片的内容）时使用："
+            "修改故事层面的事实（人物的性别/身份/外貌/服装、地点、时间、情节、镜头里的道具或场景细节等）时使用："
             "按修改要求同步修订导演已批准的大纲（Brief）、角色设定和分镜表，并保存到画布。"
             "只 patch 下游节点的提示词改不到大纲和分镜。参数：edit=用户的修改要求原话。"
         ),
