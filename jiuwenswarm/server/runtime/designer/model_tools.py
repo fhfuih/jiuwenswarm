@@ -74,8 +74,9 @@ _CANNOT_DISABLE_THINKING_MODELS = (
     "qianfan-ocr-*",
 )
 _ENABLE_THINKING_MODELS = ("qwen3*", "qwen-plus*", "qwen-max*", "qwen-flash*")
-# Not in agent-core tables: DashScope rejects disabling thinking for these (only low/high/max).
-_DASHSCOPE_CANNOT_DISABLE_THINKING_MODELS = ("glm-5.3-flash*",)
+# Deviates from agent-core tables: DashScope rejects disabling thinking for GLM models
+# (only low/high/max), so the whole family gets no switch there.
+_DASHSCOPE_CANNOT_DISABLE_THINKING_MODELS = ("glm-*",)
 _DASHSCOPE_HOSTS = ("dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com", "maas.aliyuncs.com")
 _GENERIC_ENDPOINT_PROFILES = {"", "openai", "openai-compatible"}
 
