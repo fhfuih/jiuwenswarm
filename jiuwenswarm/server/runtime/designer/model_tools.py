@@ -74,6 +74,9 @@ _CANNOT_DISABLE_THINKING_MODELS = (
     "qianfan-ocr-*",
 )
 _ENABLE_THINKING_MODELS = ("qwen3*", "qwen-plus*", "qwen-max*", "qwen-flash*")
+# Not in agent-core tables: DashScope rejects disabling thinking for these (only low/high/max).
+_DASHSCOPE_CANNOT_DISABLE_THINKING_MODELS = ("glm-5.3-flash*",)
+_DASHSCOPE_HOSTS = ("dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com", "maas.aliyuncs.com")
 _GENERIC_ENDPOINT_PROFILES = {"", "openai", "openai-compatible"}
 
 
@@ -85,6 +88,8 @@ def _reasoning_provider(api_base: str, endpoint_profile: str) -> str:
     host = (urlparse(api_base if "://" in api_base else f"https://{api_base}").hostname or "").lower()
     if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
         return "openrouter"
+    if any(host == h or host.endswith(f".{h}") for h in _DASHSCOPE_HOSTS):
+        return "dashscope"
     return profile
 
 
@@ -101,10 +106,11 @@ def _thinking_disabled_extra_body(api_base: str, model_name: str, endpoint_profi
     def matches(patterns: tuple[str, ...]) -> bool:
         return any(fnmatchcase(model, p) or fnmatchcase(short, p) for p in patterns)
 
-    if _reasoning_provider(api_base, endpoint_profile) == "openrouter" and any(
-        fnmatchcase(model, p) for p in _OPENROUTER_REASONING_MODELS
-    ):
+    provider = _reasoning_provider(api_base, endpoint_profile)
+    if provider == "openrouter" and any(fnmatchcase(model, p) for p in _OPENROUTER_REASONING_MODELS):
         return {"reasoning": {"effort": "none"}}
+    if provider == "dashscope" and matches(_DASHSCOPE_CANNOT_DISABLE_THINKING_MODELS):
+        return {}
     if matches(_CANNOT_DISABLE_THINKING_MODELS):
         return {}
     if matches(_ENABLE_THINKING_MODELS):
