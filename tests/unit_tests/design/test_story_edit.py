@@ -327,13 +327,77 @@ def test_story_node_prompt_patch_is_kept_as_user_edit(workspace, node_id):
         (_APPROVED_BRIEF, "", "n_storyboard", "Write the storyboard. Rainy day."),
         (_APPROVED_BRIEF, _APPROVED_STORYBOARD, "n_note", "A rainy note."),
         (_APPROVED_BRIEF, _APPROVED_STORYBOARD, "n_brief", "Write the brief."),
+        (_APPROVED_BRIEF, _APPROVED_STORYBOARD, "n_clip_1", "Shot 1."),
     ],
-    ids=["no_approved_brief", "no_approved_storyboard", "other_node", "same_prompt"],
+    ids=["no_approved_brief", "no_approved_storyboard", "other_node", "same_prompt", "same_clip_prompt"],
 )
 def test_other_patches_leave_no_user_edit(workspace, brief, storyboard, node_id, prompt):
     configs = _patch(_graph(brief=brief, storyboard=storyboard), node_id, prompt)
 
     assert all("user_edit_prompt" not in cfg for cfg in configs.values())
+
+
+# ─── clip prompt patches ───────────────────────────────────────────────────
+
+_RED_CUP = "店员 hands a red cup to the guest."
+
+
+def _clip_graph() -> dict:
+    graph = _graph()
+    _node(graph, "n_clip_1")["config"].update({
+        "clip_action": "店员 hands a white cup to the guest",
+        "camera": "medium shot",
+        "generate": {"prompt": "Shot 1.", "prompt_origin": "llm"},
+    })
+    return graph
+
+
+def _assert_user_origin(cfg: dict, text: str) -> None:
+    assert cfg["prompt"] == text
+    assert cfg["user_edit_prompt"] == text
+    assert cfg["generate"] == {"prompt": text, "prompt_origin": "user"}
+    assert cfg["regenerate_packet"]["prompt"] == text
+
+
+def test_clip_prompt_patch_gets_user_origin(workspace):
+    configs = _patch(_clip_graph(), "n_clip_1", _RED_CUP)
+
+    _assert_user_origin(configs["n_clip_1"], _RED_CUP)
+    assert "user_edit_prompt" not in configs["n_brief"]
+
+
+def test_clip_generate_prompt_patch_gets_user_origin(workspace):
+    graph = _clip_graph()
+    store = DesignerGraphStore()
+    store.save_graph(graph)
+    node = _node(graph, "n_clip_1")
+    edited = {
+        **node,
+        "config": {**node["config"], "generate": {"prompt": _RED_CUP, "prompt_origin": "llm"}},
+    }
+    saved = _spawner(store).apply_agent_graph_patch("g_story", {"upsert_nodes": [edited]})
+
+    _assert_user_origin(_node(saved, "n_clip_1")["config"], _RED_CUP)
+
+
+def test_patched_clip_prompt_survives_repeated_video_calls(workspace, monkeypatch):
+    from jiuwenswarm.server.runtime.designer.pipeline import video_prompt_practice
+    from jiuwenswarm.server.runtime.designer.pipeline.wan_call_locks import apply_wan_call_locks
+
+    monkeypatch.setattr(video_prompt_practice, "current_content_language", lambda: "en")
+    store = DesignerGraphStore()
+    store.save_graph(_clip_graph())
+    clip = _node(_clip_graph(), "n_clip_1")
+    saved = _spawner(store).apply_agent_graph_patch(
+        "g_story",
+        {"upsert_nodes": [{**clip, "config": {**clip["config"], "prompt": _RED_CUP}}]},
+    )
+    cfg = _node(saved, "n_clip_1")["config"]
+
+    for _ in range(2):
+        sent = apply_wan_call_locks(cfg["prompt"], cfg=cfg, graph=saved, clip_index=1)
+        assert "red cup" in sent and "white cup" not in sent
+        assert cfg["user_edit_prompt"] == _RED_CUP
 
 
 # ─── brief / storyboard reruns ─────────────────────────────────────────────

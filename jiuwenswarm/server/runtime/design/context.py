@@ -155,11 +155,13 @@ class StoreNodeSpawner:
         if graph is None:
             raise ValueError(f"designer graph not found: {graph_id!r}")
         from jiuwenswarm.server.runtime.designer.story_edit import (
+            mark_clip_prompt_edits,
             mark_story_prompt_edits,
         )
 
         updated = apply_graph_patch(graph, patch)
         mark_story_prompt_edits(graph, updated)
+        mark_clip_prompt_edits(graph, updated)
         return self._save_and_push(graph_id, updated)
 
     async def apply_story_edit(self, edit: str) -> tuple[DesignerExecutionGraph, list[str]]:

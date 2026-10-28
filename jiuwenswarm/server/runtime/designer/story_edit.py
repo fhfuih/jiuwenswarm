@@ -17,6 +17,7 @@ from typing import Any
 
 from jiuwenswarm.common.schema.designer_graph import (
     NODE_ROLE_BRIEF,
+    NODE_ROLE_CLIP,
     NODE_ROLE_STORYBOARD,
     DesignerExecutionGraph,
     node_config,
@@ -95,6 +96,50 @@ def mark_story_prompt_edits(before: DesignerExecutionGraph, after: DesignerExecu
         old = previous.get(str(node.get("id") or ""))
         if prompt and old and prompt != old:
             node["config"] = {**node_config(node), "user_edit_prompt": prompt}
+
+
+def _clip_prompts(node: Any) -> tuple[str, str]:
+    cfg = node_config(node)
+    generate = cfg.get("generate") if isinstance(cfg.get("generate"), dict) else {}
+    return str(cfg.get("prompt") or "").strip(), str(generate.get("prompt") or "").strip()
+
+
+def mark_clip_prompt_edits(before: DesignerExecutionGraph, after: DesignerExecutionGraph) -> None:
+    """Give a chat edit of a clip prompt the same authority as a toolbar edit.
+
+    Without user origin the Director rewrites the clip call from the storyboard
+    beat and stamps that text back over ``prompt`` / ``generate.prompt``, so the
+    edit is lost on every run. Mirrors ``writeMediaGeneratePatch`` in the web
+    designer (``mediaNodeConfig.ts``).
+    """
+    previous = {
+        str(node.get("id") or ""): _clip_prompts(node)
+        for node in before.get("nodes") or []
+        if isinstance(node, dict)
+    }
+    for node in after.get("nodes") or []:
+        if not isinstance(node, dict) or node_pipeline(node) != NODE_ROLE_CLIP:
+            continue
+        old = previous.get(str(node.get("id") or ""))
+        if old is None:
+            continue
+        prompt, generate_prompt = _clip_prompts(node)
+        if prompt and prompt != old[0]:
+            text = prompt
+        elif generate_prompt and generate_prompt != old[1]:
+            text = generate_prompt
+        else:
+            continue
+        cfg = node_config(node)
+        generate = dict(cfg["generate"]) if isinstance(cfg.get("generate"), dict) else {}
+        packet = dict(cfg["regenerate_packet"]) if isinstance(cfg.get("regenerate_packet"), dict) else {}
+        node["config"] = {
+            **cfg,
+            "prompt": text,
+            "user_edit_prompt": text[:4000],
+            "generate": {**generate, "prompt": text, "prompt_origin": "user"},
+            "regenerate_packet": {**packet, "prompt": text[:4000]},
+        }
 
 
 def _clear_pending_edits(graph: DesignerExecutionGraph, roles: set[str]) -> None:
@@ -277,6 +322,7 @@ __all__ = [
     "apply_story_edit",
     "apply_storyboard_edit",
     "has_approved_story",
+    "mark_clip_prompt_edits",
     "mark_story_prompt_edits",
     "revise_brief",
     "revise_cast",
