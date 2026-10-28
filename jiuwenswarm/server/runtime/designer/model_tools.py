@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Iterator
+from urllib.parse import urlparse
 
 from jiuwenswarm.common.config import get_config, get_model_names, resolve_env_vars
 
@@ -48,14 +49,19 @@ def _clamp_max_tokens(value: int | None) -> int:
     return max(256, min(_DESIGNER_MAX_TOKENS_CAP, n))
 
 
-def _thinking_disabled_extra_body() -> dict[str, Any]:
-    """Provider-neutral knobs so reasoning does not eat the output budget."""
-    return {
-        "thinking": {"type": "disabled"},
-        "reasoning": {"enabled": False},
-        "enable_thinking": False,
-        "chat_template_kwargs": {"enable_thinking": False},
-    }
+def _thinking_disabled_extra_body(api_base: str, model_name: str) -> dict[str, Any]:
+    """Send only the switch each provider honors so reasoning does not eat the output budget.
+
+    Unrecognized switches are not always ignored: DashScope-style proxies reject
+    ``enable_thinking=false`` with HTTP 400 for always-thinking models.
+    """
+    host = (urlparse(api_base if "://" in api_base else f"https://{api_base}").hostname or "").lower()
+    if host == "openrouter.ai" or host.endswith(".openrouter.ai"):
+        return {"reasoning": {"enabled": False}}
+    model = model_name.strip().lower().rsplit("/", 1)[-1]
+    if model.startswith("qwen") and "thinking" not in model:
+        return {"enable_thinking": False}
+    return {"thinking": {"type": "disabled"}}
 
 
 def _message_text(msg: Any) -> str:
@@ -510,7 +516,7 @@ async def call_model_tool(
                     ],
                     "max_tokens": max_tokens,
                     "temperature": temperature,
-                    "extra_body": _thinking_disabled_extra_body(),
+                    "extra_body": _thinking_disabled_extra_body(api_base, model_name),
                 }
                 from jiuwenswarm.server.runtime.designer.trajectory import (
                     current_trajectory_span,
