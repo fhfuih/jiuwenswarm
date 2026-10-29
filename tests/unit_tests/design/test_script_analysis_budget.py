@@ -61,11 +61,19 @@ async def test_script_analysis_timeout_reports_reinforce_attempt(
         "http://llm-gateway:8000/v1",
     ],
 )
-def test_self_hosted_endpoint_gets_chat_template_switch(api_base: str) -> None:
+def test_self_hosted_endpoint_keeps_provider_neutral_body(api_base: str) -> None:
     body = _thinking_disabled_extra_body(api_base, "DeepSeek-V4.1-Flash")
 
-    assert body["chat_template_kwargs"] == {"enable_thinking": False}
-    assert body["thinking"] == {"type": "disabled"}
+    assert body == {
+        "thinking": {"type": "disabled"},
+        "reasoning": {"enabled": False},
+        "enable_thinking": False,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+
+
+def test_self_hosted_endpoint_skips_models_that_cannot_disable_thinking() -> None:
+    assert _thinking_disabled_extra_body("http://10.20.30.40:8000/v1", "kimi-k2-thinking") == {}
 
 
 def test_explicit_vllm_profile_gets_chat_template_switch() -> None:

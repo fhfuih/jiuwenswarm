@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import ipaddress
 import logging
 import mimetypes
@@ -84,6 +85,16 @@ _GENERIC_ENDPOINT_PROFILES = {"", "openai", "openai-compatible"}
 # provider-specific top-level switches such as ``enable_thinking``.
 _CHAT_TEMPLATE_PROFILES = {"vllm", "sglang"}
 _CHAT_TEMPLATE_THINKING_OFF = {"chat_template_kwargs": {"enable_thinking": False}}
+# An IP / localhost / intranet api_base says nothing about the serving stack, so it
+# keeps the provider-neutral body Designer sent to every endpoint before per-provider
+# switches existed; such endpoints were validated against exactly this payload.
+_SELF_HOSTED_PROVIDER = "self-hosted"
+_PROVIDER_NEUTRAL_THINKING_OFF = {
+    "thinking": {"type": "disabled"},
+    "reasoning": {"enabled": False},
+    "enable_thinking": False,
+    "chat_template_kwargs": {"enable_thinking": False},
+}
 
 
 def _api_host(api_base: str) -> str:
@@ -114,7 +125,7 @@ def _reasoning_provider(api_base: str, endpoint_profile: str) -> str:
     if any(host == h or host.endswith(f".{h}") for h in _DASHSCOPE_HOSTS):
         return "dashscope"
     if _is_self_hosted_host(host):
-        return "vllm"
+        return _SELF_HOSTED_PROVIDER
     return profile
 
 
@@ -123,9 +134,10 @@ def _thinking_disabled_extra_body(api_base: str, model_name: str, endpoint_profi
 
     Unrecognized switches are not always ignored: DashScope-style proxies reject
     ``enable_thinking=false`` with HTTP 400 for always-thinking models, so models
-    that cannot disable thinking get no switch at all. vLLM / SGLang servers
-    (explicit profile, or an IP / localhost / intranet api_base) additionally get
-    ``chat_template_kwargs`` because that is the only switch their templates read.
+    that cannot disable thinking get no switch at all. An explicit vLLM / SGLang
+    profile additionally gets ``chat_template_kwargs`` because that is the only
+    switch their templates read; an IP / localhost / intranet api_base of unknown
+    stack gets every switch.
     """
     model = model_name.strip().lower()
     short = model.rsplit("/", 1)[-1]
@@ -140,6 +152,8 @@ def _thinking_disabled_extra_body(api_base: str, model_name: str, endpoint_profi
         return {}
     if matches(_CANNOT_DISABLE_THINKING_MODELS):
         return {}
+    if provider == _SELF_HOSTED_PROVIDER:
+        return copy.deepcopy(_PROVIDER_NEUTRAL_THINKING_OFF)
     template_switch = _CHAT_TEMPLATE_THINKING_OFF if provider in _CHAT_TEMPLATE_PROFILES else {}
     if matches(_ENABLE_THINKING_MODELS):
         return {"enable_thinking": False, **template_switch}
