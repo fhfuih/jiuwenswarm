@@ -3971,6 +3971,14 @@ class JiuWenSwarmDeepAdapter:
                             installed_selection = selection
                     explicit_switch = model_selection is not None or bool(model_name)
                     if not retain_moa_snapshot and explicit_switch and selection != installed_selection:
+                        logger.warning(
+                            "[JiuWenSwarm] model switch rejected on busy session: session_id=%s "
+                            "requested=%s model_name=%s installed=%s",
+                            sid,
+                            selection,
+                            model_name,
+                            installed_selection,
+                        )
                         raise RuntimeError("Model selection cannot change while the session is executing")
                     # Global settings and metadata changes never replace a running
                     # or permission-suspended invocation's installed snapshot.
