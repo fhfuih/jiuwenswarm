@@ -765,10 +765,27 @@ logger = logging.getLogger(__name__)
 def _model_name_names_selection(model_name: str, selection: ModelSelection) -> bool:
     """Whether an ordinary model name and a stable model selection pick the same catalog model.
 
-    An ambiguous name (several catalog models share it) matches nothing.
+    ``name#index`` addresses one entry of the global model list, as
+    ``_resolve_model_by_name`` does; a bare name that several catalog models
+    share matches nothing.
     """
     if not model_name or selection.type != "model":
         return False
+    if "#" in model_name:
+        bare_name, _, index_part = model_name.rpartition("#")
+        try:
+            index = int(index_part)
+        except ValueError:
+            return False
+        entries = get_available_models(get_config())
+        if not 0 <= index < len(entries):
+            return False
+        entry = entries[index]
+        client_config = entry.get("model_client_config") or {}
+        return entry.get("model_id") == selection.id and bare_name in {
+            client_config.get("model_name"),
+            entry.get("alias"),
+        }
     from jiuwenswarm.common.model_catalog import ModelCatalog
 
     matches = [
